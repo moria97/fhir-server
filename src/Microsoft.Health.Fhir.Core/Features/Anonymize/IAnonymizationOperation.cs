@@ -3,11 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+
+namespace Microsoft.Health.Fhir.Core.Features.Anonymize
 {
-    public static class CosmosDbExportConstants
+    public interface IAnonymizationOperation
     {
-        public const string ExportJobPartitionKey = "ExportJob";
-        public const string AnonymizeJobPartitionKey = "AnonymizeJob";
+        ResourceWrapper Anonymize(ResourceWrapper resource, string collectionId);
     }
 }

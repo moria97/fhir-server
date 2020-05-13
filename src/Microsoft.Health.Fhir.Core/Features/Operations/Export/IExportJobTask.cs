@@ -10,6 +10,8 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
+    public delegate IExportJobTask ExportJobResolver(ExportJobType type);
+
     public interface IExportJobTask
     {
         /// <summary>

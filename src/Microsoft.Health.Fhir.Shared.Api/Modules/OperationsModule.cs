@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -19,11 +20,25 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
+            services.Add<AnonymizeJobTask>()
+                .Transient()
+                .AsSelf();
+
             services.Add<ExportJobTask>()
                 .Transient()
                 .AsSelf();
 
-            services.Add<IExportJobTask>(sp => sp.GetRequiredService<ExportJobTask>())
+            services.Add<ExportJobResolver>(sp => type =>
+                {
+                    if (type == Core.Features.Operations.Export.Models.ExportJobType.Export)
+                    {
+                        return sp.GetRequiredService<ExportJobTask>();
+                    }
+                    else
+                    {
+                        return sp.GetRequiredService<AnonymizeJobTask>();
+                    }
+                })
                 .Transient()
                 .AsSelf()
                 .AsFactory();

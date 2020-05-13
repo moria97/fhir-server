@@ -15,6 +15,21 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class ExportMediatorExtensions
     {
+        public static async Task<CreateExportResponse> AnonymizeAsync(
+            this IMediator mediator,
+            Uri requestUri,
+            string collectionId,
+            CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(requestUri, nameof(requestUri));
+
+            var request = new CreateAnonymizeRequest(requestUri, collectionId);
+
+            CreateExportResponse response = await mediator.Send(request, cancellationToken);
+            return response;
+        }
+
         public static async Task<CreateExportResponse> ExportAsync(
             this IMediator mediator,
             Uri requestUri,

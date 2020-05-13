@@ -23,12 +23,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
-        private readonly Func<IExportJobTask> _exportJobTaskFactory;
+        private readonly ExportJobResolver _exportJobTaskFactory;
         private readonly ILogger _logger;
 
         private const int MaximumDelayInSeconds = 3600;
 
-        public ExportJobWorker(Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory, IOptions<ExportJobConfiguration> exportJobConfiguration, Func<IExportJobTask> exportJobTaskFactory, ILogger<ExportJobWorker> logger)
+        public ExportJobWorker(Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory, IOptions<ExportJobConfiguration> exportJobConfiguration, ExportJobResolver exportJobTaskFactory, ILogger<ExportJobWorker> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             {
                                 _logger.LogTrace($"Picked up job: {job.JobRecord.Id}.");
 
-                                runningTasks.Add(_exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
+                                runningTasks.Add(_exportJobTaskFactory(job.JobRecord.JobType).ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
                             }
                         }
                     }

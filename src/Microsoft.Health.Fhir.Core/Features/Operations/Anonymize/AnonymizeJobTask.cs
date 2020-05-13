@@ -9,11 +9,13 @@ using System.Globalization;
 using System.Net;
 using System.Threading;
 using EnsureThat;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Anonymize;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -22,26 +24,34 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
-    public class ExportJobTask : IExportJobTask
+    public class AnonymizeJobTask : IExportJobTask
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
-        private readonly ExportJobConfiguration _exportJobConfiguration;
+        private readonly AnonymizeJobConfiguration _exportJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClient _exportDestinationClient;
         private readonly ILogger _logger;
+        private readonly IRawResourceFactory _rawResourceFactory;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
         // individual files based on a max file size. This could result in a single resource having multiple files.
         // We will have to update the below mapping to support multiple ExportFileInfo per resource type.
-        private readonly IDictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping = new Dictionary<string, ExportFileInfo>();
 
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
 
-        public ExportJobTask(
+        private IFhirDataStore _fhirDataStore;
+        private IResourceWrapperFactory _resourceWrapperFactory;
+        private IAnonymizationOperation _anonymizationOperation;
+
+        public AnonymizeJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
-            IOptions<ExportJobConfiguration> exportJobConfiguration,
+            IFhirDataStore fhirDataStore,
+            IAnonymizationOperation anonymizationOperation,
+            IResourceWrapperFactory resourceWrapperFactory,
+            IRawResourceFactory rawResourceFactory,
+            IOptions<AnonymizeJobConfiguration> exportJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClient exportDestinationClient,
@@ -54,7 +64,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
+            _anonymizationOperation = anonymizationOperation;
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
+            _fhirDataStore = fhirDataStore;
+            _resourceWrapperFactory = resourceWrapperFactory;
+            _rawResourceFactory = rawResourceFactory;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
@@ -73,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             try
             {
                 // Connect to export destination using appropriate client.
-                await _exportDestinationClient.ConnectAsync(cancellationToken, _exportJobRecord.Id);
+                // await _exportDestinationClient.ConnectAsync(cancellationToken, _exportJobRecord.Id);
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -95,11 +109,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{_exportJobRecord.QueuedTime.ToString("o", CultureInfo.InvariantCulture)}"),
                 };
 
-                if (_exportJobRecord.Since != null)
-                {
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}"));
-                }
-
                 // Process the export if:
                 // 1. There is continuation token, which means there is more resource to be exported.
                 // 2. There is no continuation token but the page is 0, which means it's the initial export.
@@ -116,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                 cancellationToken);
                     }
 
-                    await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
+                    await ProcessSearchResultsAsync(searchResult.Results, exportJobRecord.CollectionId, cancellationToken);
 
                     if (searchResult.ContinuationToken == null)
                     {
@@ -198,45 +207,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
         }
 
-        private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, uint partId, CancellationToken cancellationToken)
+        private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, string collectionId, CancellationToken cancellationToken)
         {
             foreach (SearchResultEntry result in searchResults)
             {
                 ResourceWrapper resourceWrapper = result.Resource;
 
-                string resourceType = resourceWrapper.ResourceTypeName;
-
-                // Check whether we already have an existing file for the current resource type.
-                if (!_resourceTypeToFileInfoMapping.TryGetValue(resourceType, out ExportFileInfo exportFileInfo))
-                {
-                    // Check whether we have seen this file previously (in situations where we are resuming an export)
-                    if (_exportJobRecord.Output.TryGetValue(resourceType, out exportFileInfo))
-                    {
-                        // A file already exists for this resource type. Let us open the file on the client.
-                        await _exportDestinationClient.OpenFileAsync(exportFileInfo.FileUri, cancellationToken);
-                    }
-                    else
-                    {
-                        // File does not exist. Create it.
-                        string fileName = resourceType + ".ndjson";
-                        Uri fileUri = await _exportDestinationClient.CreateFileAsync(fileName, cancellationToken);
-
-                        exportFileInfo = new ExportFileInfo(resourceType, fileUri, sequence: 0);
-
-                        // Since we created a new file the JobRecord Output also needs to know about it.
-                        _exportJobRecord.Output.TryAdd(resourceType, exportFileInfo);
-                    }
-
-                    _resourceTypeToFileInfoMapping.Add(resourceType, exportFileInfo);
-                }
-
-                // Serialize into NDJson and write to the file.
-                byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(resourceWrapper);
-
-                await _exportDestinationClient.WriteFilePartAsync(exportFileInfo.FileUri, partId, bytesToWrite, cancellationToken);
-
-                // Increment the file information.
-                exportFileInfo.IncrementCount(bytesToWrite.Length);
+                var newResourceWrapper = _anonymizationOperation.Anonymize(resourceWrapper, collectionId);
+                UpsertOutcome outcome = await _fhirDataStore.UpsertAsync(
+                    newResourceWrapper,
+                    weakETag: null,
+                    allowCreate: true,
+                    keepHistory: true,
+                    cancellationToken: cancellationToken,
+                    collectionId);
             }
         }
     }

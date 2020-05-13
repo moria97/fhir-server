@@ -38,6 +38,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
 
         private readonly UpsertWithHistory _upsertWithHistoryProc;
         private readonly HardDelete _hardDelete;
@@ -77,6 +78,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
 
             _documentClientScope = documentClientScope;
+            _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
@@ -104,9 +106,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             WeakETag weakETag,
             bool allowCreate,
             bool keepHistory,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string collectionId = null)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
+
+            collectionId = collectionId ?? CollectionId;
+            var collectionUri = _cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionId);
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
 
@@ -117,7 +123,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async ct => await _upsertWithHistoryProc.Execute(
                         _documentClientScope.Value,
-                        CollectionUri,
+                        collectionUri,
                         cosmosWrapper,
                         weakETag?.VersionId,
                         allowCreate,
@@ -160,9 +166,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
+        public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken, string collectionId = null)
         {
             EnsureArg.IsNotNull(key, nameof(key));
+
+            collectionId = collectionId ?? CollectionId;
+            var collectionUri = _cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionId);
 
             bool isVersionedRead = !string.IsNullOrEmpty(key.VersionId);
 
@@ -187,7 +196,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 return await _documentClientScope.Value.ReadDocumentAsync<FhirCosmosResourceWrapper>(
-                    UriFactory.CreateDocumentUri(DatabaseId, CollectionId, key.Id),
+                    UriFactory.CreateDocumentUri(DatabaseId, collectionId, key.Id),
                     new RequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
                     cancellationToken);
             }

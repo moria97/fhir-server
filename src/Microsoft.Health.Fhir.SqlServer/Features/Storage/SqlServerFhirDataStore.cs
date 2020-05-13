@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public async Task<UpsertOutcome> UpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
+        public async Task<UpsertOutcome> UpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, CancellationToken cancellationToken, string collectionId = null)
         {
             await _model.EnsureInitialized();
 
@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
+        public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken, string collectionId = null)
         {
             await _model.EnsureInitialized();
 

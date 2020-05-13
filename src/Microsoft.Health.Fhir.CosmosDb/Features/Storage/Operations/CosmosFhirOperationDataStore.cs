@@ -78,6 +78,35 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
         private Uri CollectionUri { get; }
 
+        public async Task<ExportJobOutcome> CreateAnonymizeJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
+
+            var cosmosExportJob = new CosmosExportJobRecordWrapper(jobRecord);
+
+            try
+            {
+                ResourceResponse<Document> result = await _documentClientScope.Value.CreateDocumentAsync(
+                    CollectionUri,
+                    cosmosExportJob,
+                    new RequestOptions() { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
+                    disableAutomaticIdGeneration: true,
+                    cancellationToken: cancellationToken);
+
+                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(result.Resource.ETag));
+            }
+            catch (DocumentClientException dce)
+            {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+
+                _logger.LogError(dce, "Failed to create an export job.");
+                throw;
+            }
+        }
+
         public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));

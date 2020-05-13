@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
-                NullLogger<ExportJobTask>.Instance);
+                NullLogger<AnonymizeJobTask>.Instance);
         }
 
         [Fact]
@@ -492,7 +492,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 mockExportDestinationClient,
-                NullLogger<ExportJobTask>.Instance);
+                NullLogger<AnonymizeJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
@@ -563,7 +563,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
-                NullLogger<ExportJobTask>.Instance);
+                NullLogger<AnonymizeJobTask>.Instance);
 
             numberOfSuccessfulPages = 5;
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);

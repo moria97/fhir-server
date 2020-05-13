@@ -23,6 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// Initializes a new instance of the <see cref="RawResourceFactory"/> class.
         /// </summary>
         /// <param name="fhirJsonSerializer">The FhirJsonSerializer to use for serializing the resource.</param>
+        /// <param name="fhirJsonParser">The FhirJsonParser to use for parse the resource.</param>
+
         public RawResourceFactory(FhirJsonSerializer fhirJsonSerializer)
         {
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
