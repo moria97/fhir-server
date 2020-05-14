@@ -80,6 +80,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Anonymize
                 {
                     throw new RequestRateExceededException(dce.RetryAfter);
                 }
+                else if (dce.StatusCode == HttpStatusCode.Conflict)
+                {
+                    return;
+                }
 
                 _logger.LogError(dce, "Failed to create a configuration file.");
                 throw;

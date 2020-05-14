@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export
         public AnonymizerConfiguration Configuration { get; private set; }
 
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
-        public string PartitionKey { get; } = CosmosDbExportConstants.ExportJobPartitionKey;
+        public string PartitionKey { get; } = CosmosDbExportConstants.AnonymizeJobPartitionKey;
 
         [JsonProperty(KnownDocumentProperties.Id)]
         public string Id { get; set; }

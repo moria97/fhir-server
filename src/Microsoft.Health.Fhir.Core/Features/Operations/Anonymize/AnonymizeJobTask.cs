@@ -29,10 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly AnonymizeJobConfiguration _exportJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
-        private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClient _exportDestinationClient;
         private readonly ILogger _logger;
-        private readonly IRawResourceFactory _rawResourceFactory;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
         // individual files based on a max file size. This could result in a single resource having multiple files.
@@ -42,15 +40,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private WeakETag _weakETag;
 
         private IFhirDataStore _fhirDataStore;
-        private IResourceWrapperFactory _resourceWrapperFactory;
         private IAnonymizationOperation _anonymizationOperation;
 
         public AnonymizeJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             IFhirDataStore fhirDataStore,
             IAnonymizationOperation anonymizationOperation,
-            IResourceWrapperFactory resourceWrapperFactory,
-            IRawResourceFactory rawResourceFactory,
             IOptions<AnonymizeJobConfiguration> exportJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
@@ -67,11 +62,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _anonymizationOperation = anonymizationOperation;
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _fhirDataStore = fhirDataStore;
-            _resourceWrapperFactory = resourceWrapperFactory;
-            _rawResourceFactory = rawResourceFactory;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
-            _resourceToByteArraySerializer = resourceToByteArraySerializer;
             _exportDestinationClient = exportDestinationClient;
             _logger = logger;
         }
@@ -213,7 +205,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 ResourceWrapper resourceWrapper = result.Resource;
 
-                var newResourceWrapper = _anonymizationOperation.Anonymize(resourceWrapper, collectionId);
+                var newResourceWrapper = await _anonymizationOperation.Anonymize(resourceWrapper, collectionId);
                 UpsertOutcome outcome = await _fhirDataStore.UpsertAsync(
                     newResourceWrapper,
                     weakETag: null,

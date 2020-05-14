@@ -3,12 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Anonymize
 {
     public interface IAnonymizationOperation
     {
-        ResourceWrapper Anonymize(ResourceWrapper resource, string collectionId);
+        Task<ResourceWrapper> Anonymize(ResourceWrapper resource, string collectionId);
     }
 }
