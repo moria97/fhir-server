@@ -29,7 +29,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly AnonymizeJobConfiguration _exportJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
-        private readonly IExportDestinationClient _exportDestinationClient;
         private readonly ILogger _logger;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
@@ -39,24 +38,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
 
-        private IFhirDataStore _fhirDataStore;
-        private IAnonymizationOperation _anonymizationOperation;
+        private Func<IScoped<IFhirDataStore>> _fhirDataStore;
+        private Func<IScoped<IAnonymizationOperation>> _anonymizationOperation;
 
         public AnonymizeJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
-            IFhirDataStore fhirDataStore,
-            IAnonymizationOperation anonymizationOperation,
+            Func<IScoped<IFhirDataStore>> fhirDataStore,
+            Func<IScoped<IAnonymizationOperation>> anonymizationOperation,
             IOptions<AnonymizeJobConfiguration> exportJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
-            IExportDestinationClient exportDestinationClient,
             ILogger<AnonymizeJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
-            EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _anonymizationOperation = anonymizationOperation;
@@ -64,7 +61,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _fhirDataStore = fhirDataStore;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
-            _exportDestinationClient = exportDestinationClient;
             _logger = logger;
         }
 
@@ -125,8 +121,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         break;
                     }
 
-                    // Update the continuation token in local cache and queryParams.
-                    // We will add or udpate the continuation token to the end of the query parameters list.
                     progress.UpdateContinuationToken(searchResult.ContinuationToken);
                     if (queryParametersList[queryParametersList.Count - 1].Item1 == KnownQueryParameterNames.ContinuationToken)
                     {
@@ -139,18 +133,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                     if (progress.Page % _exportJobConfiguration.NumberOfPagesPerCommit == 0)
                     {
-                        // Commit the changes.
-                        await _exportDestinationClient.CommitAsync(cancellationToken);
-
                         // Update the job record.
                         await UpdateJobRecordAsync(cancellationToken);
 
                         currentBatchId = progress.Page;
                     }
                 }
-
-                // Commit one last time for any pending changes.
-                await _exportDestinationClient.CommitAsync(cancellationToken);
 
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
@@ -205,12 +193,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 ResourceWrapper resourceWrapper = result.Resource;
 
-                var newResourceWrapper = await _anonymizationOperation.Anonymize(resourceWrapper, collectionId);
-                UpsertOutcome outcome = await _fhirDataStore.UpsertAsync(
+                var newResourceWrapper = await _anonymizationOperation().Value.Anonymize(resourceWrapper, collectionId);
+                UpsertOutcome outcome = await _fhirDataStore().Value.UpsertAsync(
                     newResourceWrapper,
                     weakETag: null,
                     allowCreate: true,
-                    keepHistory: true,
+                    keepHistory: false,
                     cancellationToken: cancellationToken,
                     collectionId);
             }

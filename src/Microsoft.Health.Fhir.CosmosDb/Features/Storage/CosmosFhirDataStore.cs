@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            collectionId = collectionId ?? CollectionId;
+            collectionId ??= CollectionId;
             var collectionUri = _cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionId);
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);

@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public DateTimeOffset LastModified { get; protected set; }
 
         [JsonProperty(KnownResourceWrapperProperties.RawResource)]
-        public RawResource RawResource { get; protected set; }
+        public RawResource RawResource { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.Request)]
         public ResourceRequest Request { get; protected set; }
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public virtual bool IsHistory { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.SearchIndices)]
-        public virtual IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; protected set; }
+        public virtual IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.LastModifiedClaims)]
         public IReadOnlyCollection<KeyValuePair<string, string>> LastModifiedClaims { get; protected set; }

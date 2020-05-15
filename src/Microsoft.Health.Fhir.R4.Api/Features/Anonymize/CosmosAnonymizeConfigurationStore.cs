@@ -18,6 +18,7 @@ using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
 namespace Microsoft.Health.Fhir.Api.Features.Anonymize
 {
@@ -26,13 +27,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Anonymize
         private readonly IScoped<IDocumentClient> _documentClientScope;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger _logger;
+        private readonly ILogger<CollectionInitializer> _logger1;
+        private readonly ICollectionInitializer _collectionInitializer;
+        private CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
+        private CosmosCollectionConfiguration _cosmosCollectionConfiguration;
+        private FhirCollectionUpgradeManager _fhirCollectionUpgradeManager;
 
         public CosmosAnonymizeConfigurationStore(
             IScoped<IDocumentClient> documentClientScope,
+            ICollectionInitializer collectionInitializer,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
+            FhirCollectionUpgradeManager fhirCollectionUpgradeManager,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
-            ILogger<CosmosAnonymizeConfigurationStore> logger)
+            ILogger<CosmosAnonymizeConfigurationStore> logger,
+            ILogger<CollectionInitializer> logger1)
         {
             EnsureArg.IsNotNull(documentClientScope, nameof(documentClientScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -42,13 +51,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Anonymize
 
             _documentClientScope = documentClientScope;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
+            _collectionInitializer = collectionInitializer;
             _logger = logger;
+            _logger1 = logger1;
 
-            CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get("fhirCosmosDb");
+            _cosmosCollectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get("fhirCosmosDb");
+            _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
+            _fhirCollectionUpgradeManager = fhirCollectionUpgradeManager;
 
             DatabaseId = cosmosDataStoreConfiguration.DatabaseId;
-            CollectionId = collectionConfiguration.CollectionId;
-            CollectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionConfiguration.CollectionId);
+            CollectionId = _cosmosCollectionConfiguration.CollectionId;
+            CollectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(_cosmosCollectionConfiguration.CollectionId);
         }
 
         private string DatabaseId { get; }
@@ -57,9 +70,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Anonymize
 
         private Uri CollectionUri { get; }
 
+        public async Task InitializeCollection(string collectionId)
+        {
+            EnsureArg.IsNotNull(collectionId, nameof(collectionId));
+
+            var collectionInitializer = new CollectionInitializer(
+                collectionId,
+                _cosmosDataStoreConfiguration,
+                _cosmosCollectionConfiguration.InitialCollectionThroughput,
+                _fhirCollectionUpgradeManager,
+                _logger1);
+
+            await collectionInitializer.InitializeCollection(_documentClientScope.Value);
+        }
+
         public async Task CreateAnonymizeConfigurationAsync(AnonymizerConfiguration configuration, string collectionId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
+
+            await InitializeCollection(collectionId);
 
             var configurationWrapper = new CosmosAnonymizationConfigurationWrapper(configuration, collectionId);
 

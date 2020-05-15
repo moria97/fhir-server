@@ -62,11 +62,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // Otherwise, we will create a new export job. This will be a best effort since the likelihood of this happen should be small.
             ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByHashAsync(hash, cancellationToken);
 
-            if (outcome == null)
-            {
-                var jobRecord = new ExportJobRecord(request.RequestUri, request.CollectionId, hash, requestorClaims);
-                outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
-            }
+            var jobRecord = new ExportJobRecord(request.RequestUri, request.CollectionId, hash, requestorClaims);
+            outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
 
             return new CreateExportResponse(outcome.JobRecord.Id);
         }

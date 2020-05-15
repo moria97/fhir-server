@@ -2,6 +2,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Fhir.Anonymizer.Core.AnonymizerConfigurations;
@@ -41,10 +42,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _cosmosFhirOperationDataStore = cosmosFhirOperationDataStore;
         }
 
+        [HttpGet]
+        [AuditEventType(AuditEventSubType.Export)]
+        [Route(KnownRoutes.AnonymizeResourceTypeEndpoint)]
+        public async Task<ActionResult> SearchAnonymize(string idParameter, string typeParameter)
+        {
+            await Task.Delay(1);
+            return new ContentResult
+            {
+                Content = $"{idParameter} {typeParameter}",
+            };
+        }
+
         [HttpPost]
         [AuditEventType(AuditEventSubType.Export)]
         [Route(KnownRoutes.AnonymizeEndpoint)]
-        public async Task<ActionResult> Create(string idParameter, [FromBody] AnonymizerConfiguration configuration)
+        public async Task<ActionResult> CreateAnonymizeEndpoint(string idParameter, [FromBody] AnonymizerConfiguration configuration)
         {
             await _cosmosFhirOperationDataStore.CreateAnonymizeConfigurationAsync(configuration, idParameter, CancellationToken.None);
 

@@ -11,6 +11,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Anonymize
 {
     public interface IAnonymizeConfigurationStore
     {
+        Task InitializeCollection(string collectionId);
+
         Task CreateAnonymizeConfigurationAsync(AnonymizerConfiguration configuration, string collectionId, CancellationToken cancellationToken);
 
         Task<AnonymizerConfiguration> GetAnonymizerConfigurationByIdAsync(string id, CancellationToken cancellationToken);

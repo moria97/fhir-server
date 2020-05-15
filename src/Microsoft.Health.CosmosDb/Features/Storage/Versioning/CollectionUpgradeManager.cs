@@ -66,7 +66,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.Versioning
                     {
                         _logger.LogDebug("Running {CollectionUpdater} on {CollectionUri}", updater.GetType().Name, _configuration.GetAbsoluteCollectionUri(_collectionConfiguration.CollectionId));
 
-                        await updater.ExecuteAsync(documentClient, collection, _configuration.GetRelativeCollectionUri(_collectionConfiguration.CollectionId));
+                        await updater.ExecuteAsync(documentClient, collection, _configuration.GetRelativeCollectionUri(collection.Id));
                     }
 
                     await distributedLock.ReleaseLock();
