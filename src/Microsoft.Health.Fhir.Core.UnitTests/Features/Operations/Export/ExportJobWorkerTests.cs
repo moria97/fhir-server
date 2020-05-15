@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
@@ -129,6 +130,43 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(isSecondJobCalled);
         }
 
+        [Fact]
+        public async Task GivenAcquireExportJobThrowsException_WhenExecuted_ThenWeHaveADelayBeforeWeRetry()
+        {
+            _fhirOperationDataStore.AcquireExportJobsAsync(
+                DefaultMaximumNumberOfConcurrentJobAllowed,
+                DefaultJobHeartbeatTimeoutThreshold,
+                _cancellationToken)
+                .ThrowsForAnyArgs<Exception>();
+
+            _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency * 1.25);
+
+            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+
+            // Assert that we received only one call to AcquireExportJobsAsync
+            await _fhirOperationDataStore.ReceivedWithAnyArgs(1).AcquireExportJobsAsync(Arg.Any<ushort>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenOperationIsCancelled_WhenExecuted_ThenWeExitTheLoop()
+        {
+            ExportJobOutcome job = CreateExportJobOutcome();
+            _fhirOperationDataStore.AcquireExportJobsAsync(
+                Arg.Any<ushort>(),
+                Arg.Any<TimeSpan>(),
+                _cancellationToken)
+                .Returns(x =>
+                    {
+                        _cancellationTokenSource.Cancel();
+                        return new[] { job };
+                    });
+
+            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+
+            // Assert that we received only one call to AcquireExportJobsAsync
+            await _fhirOperationDataStore.ReceivedWithAnyArgs(1).AcquireExportJobsAsync(Arg.Any<ushort>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+        }
+
         private void SetupOperationDataStore(
             ExportJobOutcome job,
             ushort maximumNumberOfConcurrentJobsAllowed = DefaultMaximumNumberOfConcurrentJobAllowed,
@@ -154,7 +192,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private ExportJobOutcome CreateExportJobOutcome()
         {
-            var exportRequest = new CreateExportRequest(new Uri($"http://localhost/ExportJob/"), "destinationType", "destinationConnection");
+            var exportRequest = new CreateExportRequest(new Uri($"http://localhost/ExportJob/"));
             return new ExportJobOutcome(new ExportJobRecord(exportRequest.RequestUri, "Patient", "hash"), WeakETag.FromVersionId("0"));
         }
     }

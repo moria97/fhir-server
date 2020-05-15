@@ -122,9 +122,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             Bundle bundle = null;
 
             using (Stream stream = _assembly.GetManifestResourceStream(_embeddedResourceName))
-            using (TextReader reader = new StreamReader(stream))
-            using (JsonReader jsonReader = new JsonTextReader(reader))
             {
+                using TextReader reader = new StreamReader(stream);
+                using JsonReader jsonReader = new JsonTextReader(reader);
                 try
                 {
                     // The parser does some basic validation such as making sure entry is not null, enum has the right value, and etc.
@@ -154,7 +154,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                 try
                 {
-                    _uriDictionary.Add(new Uri(searchParameter.Url), searchParameter.ToInfo());
+                    SearchParameterInfo searchParameterInfo = CreateSearchParameterInfo(searchParameter);
+                    _uriDictionary.Add(new Uri(searchParameter.Url), searchParameterInfo);
                 }
                 catch (FormatException)
                 {
@@ -252,7 +253,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         }
                     }
 
-                    validatedSearchParameters.Add((baseResourceType, searchParameter.ToInfo()));
+                    validatedSearchParameters.Add((baseResourceType, CreateSearchParameterInfo(searchParameter)));
                 }
             }
 
@@ -279,6 +280,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
+        private SearchParameterInfo CreateSearchParameterInfo(SearchParameter searchParameter)
+        {
+            // Return SearchParameterInfo that has already been created for this Uri
+            if (_uriDictionary.TryGetValue(new Uri(searchParameter.Url), out var spi))
+            {
+                return spi;
+            }
+
+            // Return SearchParameterInfo that has already been created for this Resource
+            if (_resourceTypeDictionary.TryGetValue(searchParameter.ResourceType.ToString(), out var spDictionary) &&
+                spDictionary.TryGetValue(searchParameter.Name, out var resourceSpi) &&
+                resourceSpi.Url == new Uri(searchParameter.Url))
+            {
+                return resourceSpi;
+            }
+
+            return searchParameter.ToInfo();
+        }
+
         private IEnumerable<SearchParameterInfo> BuildSearchParameterDefinition(
             ILookup<string, SearchParameterInfo> searchParametersLookup,
             string resourceType)
@@ -292,7 +312,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             Type type = _modelInfoProvider.GetTypeForFhirType(resourceType);
 
-            Debug.Assert(type != null, "The type should not be null.");
+            Debug.Assert(type != null, $"The type for {resourceType} should not be null.");
 
             string baseType = _modelInfoProvider.GetFhirTypeNameForType(type.BaseType);
 

@@ -6,6 +6,7 @@
 using System;
 using System.Buffers;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -13,7 +14,6 @@ using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
-using Microsoft.AspNetCore.Mvc.Internal;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
@@ -97,11 +97,30 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Equal(1, modelStateDictionary.ErrorCount);
         }
 
+        [Fact]
+        public async Task GivenAResourceWithMissingResourceType_WhenParsing_ThenAnErrorShouldBeAddedToModelState()
+        {
+            var modelStateDictionary = new ModelStateDictionary();
+
+            var result = await ReadRequestBody(Samples.GetJson("PatientMissingResourceType"), modelStateDictionary);
+
+            Assert.False(result.IsModelSet);
+            Assert.Equal(1, modelStateDictionary.ErrorCount);
+
+            (_, ModelStateEntry entry) = modelStateDictionary.First();
+
+            Assert.Single(entry.Errors);
+            Assert.Equal(Api.Resources.ParsingError, entry.Errors.First().ErrorMessage);
+        }
+
         private static async Task<InputFormatterResult> ReadRequestBody(string sampleJson, ModelStateDictionary modelStateDictionary)
         {
             var formatter = new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared);
 
-            var metaData = new DefaultModelMetadata(new EmptyModelMetadataProvider(), new DefaultCompositeMetadataDetailsProvider(new IMetadataDetailsProvider[0]), new DefaultMetadataDetails(ModelMetadataIdentity.ForType(typeof(Observation)), ModelAttributes.GetAttributesForType(typeof(Observation))));
+            var metaData = new DefaultModelMetadata(
+                new EmptyModelMetadataProvider(),
+                Substitute.For<ICompositeMetadataDetailsProvider>(),
+                new DefaultMetadataDetails(ModelMetadataIdentity.ForType(typeof(Observation)), ModelAttributes.GetAttributesForType(typeof(Observation))));
             var context = new InputFormatterContext(
                 new DefaultHttpContext(),
                 KnownActionParameterNames.Resource,

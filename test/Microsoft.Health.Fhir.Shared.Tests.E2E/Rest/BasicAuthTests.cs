@@ -5,10 +5,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
-using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using IdentityModel.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -26,14 +29,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class BasicAuthTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private static readonly Regex WwwAuthenticatePattern = new Regex(@"authorization_uri=\""(?<authorization_uri>[^\s,]+)+\"", resource_id=\""(?<resource_id>[^\s,]+)+\"", realm=\""(?<realm>[^\s,]+)+\""", RegexOptions.IgnoreCase);
+
         private const string ForbiddenMessage = "Forbidden: Authorization failed.";
         private const string UnauthorizedMessage = "Unauthorized: Authentication failed.";
-        private const string Invalidtoken = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImNmNWRmMGExNzY5ZWIzZTFkOGRiNWIxMGZiOWY3ZTk0IiwidHlwIjoiSldUIn0.eyJuYmYiOjE1NDQ2ODQ1NzEsImV4cCI6MTU0NDY4ODE3MSwiaXNzIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NDQzNDgiLCJhdWQiOlsiaHR0cHM6Ly9sb2NhbGhvc3Q6NDQzNDgvcmVzb3VyY2VzIiwiZmhpci1haSJdLCJjbGllbnRfaWQiOiJzZXJ2aWNlY2xpZW50Iiwicm9sZXMiOiJhZG1pbiIsImFwcGlkIjoic2VydmljZWNsaWVudCIsInNjb3BlIjpbImZoaXItYWkiXX0.SKSvy6Jxzwsv1ZSi0PO4Pdq6QDZ6mBJIRxUPgoPlz2JpiB6GMXu5u0n1IpS6zOXihGkGhegjtcqj-6TKE6Ou5uhQ0VTnmf-NxcYKFl48aDihcGem--qa2V8GC7na549Ctj1PLXoYUbovV4LB27Kj3X83sZVnWdHqg_G0AKo4xm7hr23VUvJ1D73lEcYaGd5K9GXHNgUrJO5v288y0uCXZ5ByNDJ-K6Xi7_68dLdshlIiHaeIBuC3rhchSf2hdglkQgOyo4g4gT_HfKjwdrrpGzepNXOPQEwtUs_o2uriXAd7FfbL_Q4ORiDWPXkmwBXqo7uUfg-2SnT3DApc3PuA0";
-        private readonly Dictionary<string, string> _exportQueryParams = new Dictionary<string, string>()
-            {
-                { "_destinationType", "in-memory" },
-                { "_destinationConnectionSettings", "connectionString" },
-            };
+        private const string InvalidToken = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImNmNWRmMGExNzY5ZWIzZTFkOGRiNWIxMGZiOWY3ZTk0IiwidHlwIjoiSldUIn0.eyJuYmYiOjE1NDQ2ODQ1NzEsImV4cCI6MTU0NDY4ODE3MSwiaXNzIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NDQzNDgiLCJhdWQiOlsiaHR0cHM6Ly9sb2NhbGhvc3Q6NDQzNDgvcmVzb3VyY2VzIiwiZmhpci1haSJdLCJjbGllbnRfaWQiOiJzZXJ2aWNlY2xpZW50Iiwicm9sZXMiOiJhZG1pbiIsImFwcGlkIjoic2VydmljZWNsaWVudCIsInNjb3BlIjpbImZoaXItYWkiXX0.SKSvy6Jxzwsv1ZSi0PO4Pdq6QDZ6mBJIRxUPgoPlz2JpiB6GMXu5u0n1IpS6zOXihGkGhegjtcqj-6TKE6Ou5uhQ0VTnmf-NxcYKFl48aDihcGem--qa2V8GC7na549Ctj1PLXoYUbovV4LB27Kj3X83sZVnWdHqg_G0AKo4xm7hr23VUvJ1D73lEcYaGd5K9GXHNgUrJO5v288y0uCXZ5ByNDJ-K6Xi7_68dLdshlIiHaeIBuC3rhchSf2hdglkQgOyo4g4gT_HfKjwdrrpGzepNXOPQEwtUs_o2uriXAd7FfbL_Q4ORiDWPXkmwBXqo7uUfg-2SnT3DApc3PuA0";
 
         public BasicAuthTests(HttpIntegrationTestFixture fixture)
         {
@@ -44,20 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenAUserWithNoReadPermissions_TheServerShouldReturnForbidden()
-        {
-            FhirClient tempClient = Client.CreateClientForClientApplication(TestApplications.ServiceClient);
-            Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
-
-            tempClient = tempClient.CreateClientForUser(TestUsers.WriteOnlyUser, TestApplications.NativeClient);
-            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.ReadAsync<Observation>(ResourceType.Observation, createdResource.Id));
-            Assert.Equal(ForbiddenMessage, fhirException.Message);
-            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenCreatingAResource_GivenAUserWithNoCreatePermissions_TheServerShouldReturnForbidden()
+        public async Task GivenAUserWithNoCreatePermissions_WhenCreatingAResource_TheServerShouldReturnForbidden()
         {
             FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
@@ -67,9 +54,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAResource_GivenAUserWithNoWritePermissions_TheServerShouldReturnForbidden()
+        public async Task GivenAUserWithNoWritePermissions_WhenUpdatingAResource_TheServerShouldReturnForbidden()
         {
-            FhirClient tempClient = Client.CreateClientForUser(TestUsers.WriteOnlyUser, TestApplications.NativeClient);
+            FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
@@ -80,9 +67,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenHardDeletingAResource_GivenAUserWithNoHardDeletePermissions_TheServerShouldReturnForbidden()
+        public async Task GivenAUserWithNoHardDeletePermissions_WhenHardDeletingAResource_TheServerShouldReturnForbidden()
         {
-            FhirClient tempClient = Client.CreateClientForUser(TestUsers.WriteOnlyUser, TestApplications.NativeClient);
+            FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.HardDeleteAsync(createdResource));
@@ -92,12 +79,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenHardDeletingAResource_GivenAUserWithHardDeletePermissions_TheServerShouldReturnSuccess()
+        public async Task GivenAUserWithHardDeletePermissions_WhenHardDeletingAResource_TheServerShouldReturnSuccess()
         {
-            FhirClient tempClient = Client.CreateClientForUser(TestUsers.WriteOnlyUser, TestApplications.NativeClient);
+            FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            tempClient = Client.CreateClientForUser(TestUsers.HardDeleteUser, TestApplications.NativeClient);
+            tempClient = Client.CreateClientForUser(TestUsers.AdminUser, TestApplications.NativeClient);
 
             // Hard-delete the resource.
             await tempClient.HardDeleteAsync(createdResource);
@@ -117,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAResource_GivenAUserWithUpdatePermissions_TheServerShouldReturnSuccess()
+        public async Task GivenAUserWithUpdatePermissions_WhenUpdatingAResource_TheServerShouldReturnSuccess()
         {
             FhirClient tempClient = Client.CreateClientForUser(TestUsers.AdminUser, TestApplications.NativeClient);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
@@ -125,7 +112,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             tempClient = Client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             FhirResponse<Observation> updateResponse = await tempClient.UpdateAsync(createdResource);
 
-            Assert.Equal(System.Net.HttpStatusCode.OK, updateResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
             Observation updatedResource = updateResponse.Resource;
 
@@ -137,21 +124,39 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenCreatingAResource_GivenAClientWithNoAuthToken_TheServerShouldReturnUnauthorized()
+        public async Task GivenAClientWithNoAuthToken_WhenCreatingAResource_TheServerShouldReturnUnauthorized()
         {
             FhirClient tempClient = Client.CreateClientForClientApplication(TestApplications.InvalidClient);
 
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
             Assert.Equal(UnauthorizedMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
+
+            List<AuthenticationHeaderValue> wwwAuthenticationHeaderValues = fhirException.Headers.WwwAuthenticate.Where(h => h.Scheme == "Bearer").ToList();
+            Assert.Single(wwwAuthenticationHeaderValues);
+
+            Match matchResults = WwwAuthenticatePattern.Match(wwwAuthenticationHeaderValues.First().Parameter);
+
+            Assert.Single(matchResults.Groups["authorization_uri"].Captures);
+            var authorizationUri = matchResults.Groups["authorization_uri"].Captures[0].Value;
+            Assert.Single(matchResults.Groups["realm"].Captures);
+            var realm = matchResults.Groups["realm"].Captures[0].Value;
+            Assert.Single(matchResults.Groups["resource_id"].Captures);
+            var resourceId = matchResults.Groups["resource_id"].Captures[0].Value;
+
+            Assert.Equal(AuthenticationSettings.Resource, realm);
+            Assert.Equal(realm, resourceId);
+
+            // We can only verify that this is a URI since a server with SmartOnFHIR enabled will not report the actual authorization server anywhere else.
+            Assert.True(Uri.TryCreate(authorizationUri, UriKind.Absolute, out _));
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenCreatingAResource_GivenAClientWithInvalidAuthToken_TheServerShouldReturnUnauthorized()
+        public async Task GivenAClientWithInvalidAuthToken_WhenCreatingAResource_TheServerShouldReturnUnauthorized()
         {
             FhirClient tempClient = Client.CreateClientForClientApplication(TestApplications.InvalidClient).Clone();
-            tempClient.HttpClient.SetBearerToken(Invalidtoken);
+            tempClient.HttpClient.SetBearerToken(InvalidToken);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
             Assert.Equal(UnauthorizedMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
@@ -159,7 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenCreatingAResource_GivenAClientWithWrongAudience_TheServerShouldReturnUnauthorized()
+        public async Task GivenAClientWithWrongAudience_WhenCreatingAResource_TheServerShouldReturnUnauthorized()
         {
             FhirClient tempClient = Client.CreateClientForClientApplication(TestApplications.WrongAudienceClient);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
@@ -169,9 +174,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenAUserWithReadPermissions_TheServerShouldReturnSuccess()
+        public async Task GivenAUserWithReadPermissions_WhenGettingAResource_TheServerShouldReturnSuccess()
         {
-            FhirClient tempClient = Client.CreateClientForClientApplication(TestApplications.ServiceClient);
+            FhirClient tempClient = Client.CreateClientForClientApplication(TestApplications.GlobalAdminServicePrincipal);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
@@ -186,22 +191,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenExportResources_GivenAUserWithNoExportPermissions_TheServerShouldReturnForbidden()
+        public async Task GivenAUserWithNoExportPermissions_WhenExportResources_TheServerShouldReturnForbidden()
         {
             FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
 
-            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.ExportAsync(_exportQueryParams));
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.ExportAsync());
             Assert.Equal(ForbiddenMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenExportResources_GivenAUserWithExportPermissions_TheServerShouldReturnSuccess()
+        public async Task GivenAUserWithExportPermissions_WhenExportResources_TheServerShouldReturnSuccess()
         {
             FhirClient tempClient = Client.CreateClientForUser(TestUsers.ExportUser, TestApplications.NativeClient);
 
-            await tempClient.ExportAsync(_exportQueryParams);
+            await tempClient.ExportAsync();
         }
     }
 }

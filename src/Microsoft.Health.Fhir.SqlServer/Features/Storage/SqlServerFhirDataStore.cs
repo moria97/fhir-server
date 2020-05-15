@@ -21,9 +21,11 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.IO;
 using Task = System.Threading.Tasks.Task;
 
@@ -39,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
-        private readonly V1.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
+        private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
@@ -49,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlServerDataStoreConfiguration configuration,
             SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
-            V1.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
+            VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerFhirDataStore> logger)
@@ -90,62 +92,60 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.LastModifiedClaims);
 
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
+            using (var gzipStream = new GZipStream(stream, CompressionMode.Compress))
+            using (var writer = new StreamWriter(gzipStream, ResourceEncoding))
             {
-                using (SqlCommand command = sqlConnectionWrapper.CreateSqlCommand())
-                using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
-                using (var gzipStream = new GZipStream(stream, CompressionMode.Compress))
-                using (var writer = new StreamWriter(gzipStream, ResourceEncoding))
+                writer.Write(resource.RawResource.Data);
+                writer.Flush();
+
+                stream.Seek(0, 0);
+
+                VLatest.UpsertResource.PopulateCommand(
+                    sqlCommandWrapper,
+                    baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
+                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                    resourceId: resource.ResourceId,
+                    eTag: weakETag == null ? null : (int?)etag,
+                    allowCreate: allowCreate,
+                    isDeleted: resource.IsDeleted,
+                    keepHistory: keepHistory,
+                    requestMethod: resource.Request.Method,
+                    rawResource: stream,
+                    tableValuedParameters: _upsertResourceTvpGenerator.Generate(resourceMetadata));
+
+                try
                 {
-                    writer.Write(resource.RawResource.Data);
-                    writer.Flush();
-
-                    stream.Seek(0, 0);
-
-                    V1.UpsertResource.PopulateCommand(
-                        command,
-                        baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
-                        resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
-                        resourceId: resource.ResourceId,
-                        eTag: weakETag == null ? null : (int?)etag,
-                        allowCreate: allowCreate,
-                        isDeleted: resource.IsDeleted,
-                        keepHistory: keepHistory,
-                        requestMethod: resource.Request.Method,
-                        rawResource: stream,
-                        tableValuedParameters: _upsertResourceTvpGenerator.Generate(resourceMetadata));
-
-                    try
+                    var newVersion = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                    if (newVersion == null)
                     {
-                        var newVersion = (int?)await command.ExecuteScalarAsync(cancellationToken);
-                        if (newVersion == null)
-                        {
-                            // indicates a redundant delete
-                            return null;
-                        }
-
-                        resource.Version = newVersion.ToString();
-
-                        return new UpsertOutcome(resource, newVersion == 1 ? SaveOutcomeType.Created : SaveOutcomeType.Updated);
+                        // indicates a redundant delete
+                        return null;
                     }
-                    catch (SqlException e)
-                    {
-                        switch (e.Number)
-                        {
-                            case SqlErrorCodes.PreconditionFailed:
-                                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
-                            case SqlErrorCodes.NotFound:
-                                if (weakETag != null)
-                                {
-                                    throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
-                                }
 
-                                goto default;
-                            case SqlErrorCodes.MethodNotAllowed:
-                                throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
-                            default:
-                                _logger.LogError(e, "Error from SQL database on upsert");
-                                throw;
-                        }
+                    resource.Version = newVersion.ToString();
+
+                    return new UpsertOutcome(resource, newVersion == 1 ? SaveOutcomeType.Created : SaveOutcomeType.Updated);
+                }
+                catch (SqlException e)
+                {
+                    switch (e.Number)
+                    {
+                        case SqlErrorCodes.PreconditionFailed:
+                            throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
+                        case SqlErrorCodes.NotFound:
+                            if (weakETag != null)
+                            {
+                                throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
+                            }
+
+                            goto default;
+                        case SqlErrorCodes.MethodNotAllowed:
+                            throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
+                        default:
+                            _logger.LogError(e, "Error from SQL database on upsert");
+                            throw;
                     }
                 }
             }
@@ -168,22 +168,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     requestedVersion = parsedVersion;
                 }
 
-                using (SqlCommand command = sqlConnectionWrapper.CreateSqlCommand())
+                using (SqlCommandWrapper commandWrapper = sqlConnectionWrapper.CreateSqlCommand())
                 {
-                    V1.ReadResource.PopulateCommand(
-                        command,
+                    VLatest.ReadResource.PopulateCommand(
+                        commandWrapper,
                         resourceTypeId: _model.GetResourceTypeId(key.ResourceType),
                         resourceId: key.Id,
                         version: requestedVersion);
 
-                    using (SqlDataReader sqlDataReader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                    using (SqlDataReader sqlDataReader = await commandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                     {
                         if (!sqlDataReader.Read())
                         {
                             return null;
                         }
 
-                        var resourceTable = V1.Resource;
+                        var resourceTable = VLatest.Resource;
 
                         (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
                             resourceTable.ResourceSurrogateId,
@@ -225,13 +225,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await _model.EnsureInitialized();
 
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                using (var command = sqlConnectionWrapper.CreateSqlCommand())
-                {
-                    V1.HardDeleteResource.PopulateCommand(command, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
+                VLatest.HardDeleteResource.PopulateCommand(sqlCommandWrapper, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
 
-                    await command.ExecuteNonQueryAsync(cancellationToken);
-                }
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
             }
         }
 

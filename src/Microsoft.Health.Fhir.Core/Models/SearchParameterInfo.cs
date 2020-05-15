@@ -5,11 +5,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using EnsureThat;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
+    [DebuggerDisplay("{Name}, Type: {Type}")]
     public class SearchParameterInfo
     {
         public SearchParameterInfo(
@@ -19,6 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             IReadOnlyList<SearchParameterComponentInfo> components = null,
             string expression = null,
             IReadOnlyCollection<string> targetResourceTypes = null,
+            IReadOnlyCollection<string> baseResourceTypes = null,
             string description = null)
             : this(
                 name,
@@ -27,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Models
                 components,
                 expression,
                 targetResourceTypes,
+                baseResourceTypes,
                 description)
         {
         }
@@ -38,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             IReadOnlyList<SearchParameterComponentInfo> components = null,
             string expression = null,
             IReadOnlyCollection<string> targetResourceTypes = null,
+            IReadOnlyCollection<string> baseResourceTypes = null,
             string description = null)
             : this(name)
         {
@@ -46,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             Component = components;
             Expression = expression;
             TargetResourceTypes = targetResourceTypes;
+            BaseResourceTypes = baseResourceTypes;
             Description = description;
         }
 
@@ -66,9 +72,27 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public IReadOnlyCollection<string> TargetResourceTypes { get; } = Array.Empty<string>();
 
+        public IReadOnlyCollection<string> BaseResourceTypes { get; } = Array.Empty<string>();
+
         public Uri Url { get; }
 
         public SearchParamType Type { get; }
+
+        /// <summary>
+        /// Returns true if this parameter is enabled for searches
+        /// </summary>
+        public bool IsSearchable { get; set; } = true;
+
+        /// <summary>
+        /// Returns true if the system has the capability for indexing and searching for this parameter
+        /// </summary>
+        public bool IsSupported { get; set; } = true;
+
+        /// <summary>
+        /// Returns true if the search parameter resolves to more than one type (FhirString, FhirUri, etc...)
+        /// but not all types are able to be indexed / searched
+        /// </summary>
+        public bool IsPartiallySupported { get; set; }
 
         public IReadOnlyList<SearchParameterComponentInfo> Component { get; }
     }

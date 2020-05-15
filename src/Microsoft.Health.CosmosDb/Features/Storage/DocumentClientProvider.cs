@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage
 {
@@ -47,7 +47,9 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             {
                 if (!_initializationOperation.IsInitialized)
                 {
+#pragma warning disable CA1065
                     throw new InvalidOperationException($"{nameof(DocumentClientProvider)} has not been initialized.");
+#pragma warning restore CA1065
                 }
 
                 return _documentClient;

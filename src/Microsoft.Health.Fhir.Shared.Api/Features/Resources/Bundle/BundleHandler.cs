@@ -20,22 +20,27 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Http.Headers;
-using Microsoft.AspNetCore.Mvc.Internal;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Abstractions.Features.Transactions;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
-using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -63,7 +68,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
         private BundleType? _bundleType;
         private readonly TransactionBundleValidator _transactionBundleValidator;
+        private readonly ResourceReferenceResolver _referenceResolver;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
+        private readonly IFhirAuthorizationService _authorizationService;
+        private readonly BundleConfiguration _bundleConfiguration;
 
         public BundleHandler(
             IHttpContextAccessor httpContextAccessor,
@@ -74,7 +82,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IBundleHttpContextAccessor bundleHttpContextAccessor,
             ResourceIdProvider resourceIdProvider,
             TransactionBundleValidator transactionBundleValidator,
+            ResourceReferenceResolver referenceResolver,
             IAuditEventTypeMapping auditEventTypeMapping,
+            IOptions<BundleConfiguration> bundleConfiguration,
+            IFhirAuthorizationService authorizationService,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -86,7 +97,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
             EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
             EnsureArg.IsNotNull(transactionBundleValidator, nameof(transactionBundleValidator));
+            EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
             EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
+            EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
+            EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -96,7 +110,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
             _resourceIdProvider = resourceIdProvider;
             _transactionBundleValidator = transactionBundleValidator;
+            _referenceResolver = referenceResolver;
             _auditEventTypeMapping = auditEventTypeMapping;
+            _authorizationService = authorizationService;
+            _bundleConfiguration = bundleConfiguration.Value;
             _logger = logger;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
@@ -121,9 +138,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     Status = ((int)HttpStatusCode.BadRequest).ToString(),
                     Outcome = CreateOperationOutcome(
-                            OperationOutcome.IssueSeverity.Error,
-                            OperationOutcome.IssueType.Invalid,
-                            "Request is empty"),
+                        OperationOutcome.IssueSeverity.Error,
+                        OperationOutcome.IssueType.Invalid,
+                        "Request is empty"),
                 };
                 responseBundle.Entry[emptyRequestOrder] = entryComponent;
             }
@@ -136,6 +153,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         public async Task<BundleResponse> Handle(BundleRequest bundleRequest, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(bundleRequest, nameof(bundleRequest));
+
+            // In scenarios where access checks involve a remote service call, it is advantageous
+            // to perform one single access check for all necessary permissions rather than one per operation.
+            // Two potential TODOs:
+            // (1) it would also be better to know what the operations are in the bundle as opposed to checking
+            //      for all possible actions. Trouble is, the exact mapping from method + URI is embedded in MVC logic
+            //      and attributes.
+            // (2) One we have the full set of permitted actions, it would be more efficient for the individual
+            //     operations to use an IFhirAuthorizationService that implements CheckAccess based on these known permitted
+            //     actions.
+
+            if (await _authorizationService.CheckAccess(DataActions.All) == DataActions.None)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
+
             var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             _bundleType = bundleResource.Type;
 
@@ -184,7 +218,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             catch (TransactionAbortedException)
             {
                 _logger.LogError("Failed to commit a transaction. Throwing BadRequest as a default exception.");
-                throw new TransactionFailedException(Api.Resources.GeneralTransactionFailedError, HttpStatusCode.BadRequest);
+                throw new FhirTransactionFailedException(Api.Resources.GeneralTransactionFailedError, HttpStatusCode.BadRequest);
             }
 
             return new BundleResponse(responseBundle.ToResourceElement());
@@ -192,6 +226,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken)
         {
+            if (_bundleConfiguration.EntryLimit != default && bundleEntries.Count > _bundleConfiguration.EntryLimit)
+            {
+                throw new BundleEntryLimitExceededException(string.Format(Api.Resources.BundleEntryLimitExceeded, _bundleConfiguration.EntryLimit));
+            }
+
             int order = 0;
             _requestCount = bundleEntries.Count;
 
@@ -217,7 +256,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 // For resources within a transaction, we need to resolve any intrabundle references and potentially persist any internally assigned ids
                 if (_bundleType == BundleType.Transaction && entry.Resource != null)
                 {
-                    await ResolveBundleReferences(entry, _referenceIdDictionary, cancellationToken);
+                    var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
+                    await _referenceResolver.ResolveReferencesAsync(entry.Resource, _referenceIdDictionary, requestUrl, cancellationToken);
 
                     if (entry.Request.Method == HTTPVerb.POST && !string.IsNullOrWhiteSpace(entry.FullUrl))
                     {
@@ -244,7 +284,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 AddHeaderIfNeeded(KnownFhirHeaders.IfNoneExist, entry.Request.IfNoneExist, httpContext);
 
                 if (entry.Request.Method == HTTPVerb.POST ||
-                   entry.Request.Method == HTTPVerb.PUT)
+                    entry.Request.Method == HTTPVerb.PUT)
                 {
                     httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(KnownContentTypes.JsonContentType));
 
@@ -263,52 +303,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 };
 
                 _requests[entry.Request.Method.Value].Add((routeContext, order++, persistedId));
-            }
-        }
-
-        public async Task ResolveBundleReferences(EntryComponent entry, Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, CancellationToken cancellationToken)
-        {
-            IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
-
-            foreach (ResourceReference reference in references)
-            {
-                if (string.IsNullOrWhiteSpace(reference.Reference))
-                {
-                    continue;
-                }
-
-                // Checks to see if this reference has already been assigned an Id
-                if (referenceIdDictionary.TryGetValue(reference.Reference, out var referenceInformation))
-                {
-                    reference.Reference = $"{referenceInformation.resourceType}/{referenceInformation.resourceId}";
-                }
-                else
-                {
-                    if (reference.Reference.Contains("?", StringComparison.Ordinal))
-                    {
-                        string[] queries = reference.Reference.Split("?");
-                        string resourceType = queries[0];
-                        string conditionalQueries = queries[1];
-
-                        if (!ModelInfoProvider.IsKnownResource(resourceType))
-                        {
-                            throw new RequestNotValidException(string.Format(Api.Resources.ResourceNotSupported, resourceType, reference.Reference));
-                        }
-
-                        SearchResultEntry[] results = await _transactionBundleValidator.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries, cancellationToken);
-
-                        if (results == null || results.Length != 1)
-                        {
-                            throw new RequestNotValidException(string.Format(Api.Resources.InvalidConditionalReference, reference.Reference));
-                        }
-
-                        string resourceId = results[0].Resource.ResourceId;
-
-                        referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType));
-
-                        reference.Reference = $"{resourceType}/{resourceId}";
-                    }
-                }
             }
         }
 

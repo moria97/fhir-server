@@ -15,6 +15,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// </summary>
     public interface ISearchParameterDefinitionManager
     {
+        public delegate ISearchParameterDefinitionManager SearchableSearchParameterDefinitionManagerResolver();
+
+        public delegate ISearchParameterDefinitionManager SupportedSearchParameterDefinitionManagerResolver();
+
         /// <summary>
         /// Gets the list of all search parameters.
         /// </summary>

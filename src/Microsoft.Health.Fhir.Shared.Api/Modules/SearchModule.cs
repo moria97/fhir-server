@@ -9,12 +9,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -37,8 +38,37 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<SearchParameterDefinitionManager>()
                 .Singleton()
                 .AsSelf()
-                .AsService<IStartable>()
-                .AsService<ISearchParameterDefinitionManager>();
+                .AsService<ISearchParameterDefinitionManager>()
+                .AsService<IStartable>();
+
+            services.Add<SearchableSearchParameterDefinitionManager>()
+                .Singleton()
+                .AsSelf()
+                .AsDelegate<ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver>();
+
+            services.Add<SupportedSearchParameterDefinitionManager>()
+                .Singleton()
+                .AsSelf()
+                .AsDelegate<ISearchParameterDefinitionManager.SupportedSearchParameterDefinitionManagerResolver>();
+
+            services.Add<SearchParameterStatusManager>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            Type searchDefinitionManagerType = typeof(SearchParameterDefinitionManager);
+            services.Add(c => new FilebasedSearchParameterRegistry(
+                    c.GetRequiredService<ISearchParameterDefinitionManager>(),
+                    searchDefinitionManagerType.Assembly,
+                    $"{searchDefinitionManagerType.Namespace}.unsupported-search-parameters.json"))
+                .Transient()
+                .AsSelf()
+                .AsService<ISearchParameterRegistry>()
+                .AsDelegate<FilebasedSearchParameterRegistry.Resolver>();
+
+            services.Add<SearchParameterSupportResolver>()
+                .Singleton()
+                .AsImplementedInterfaces();
 
             services.TypesInSameAssemblyAs<IFhirElementToSearchValueTypeConverter>()
                 .AssignableTo<IFhirElementToSearchValueTypeConverter>()
@@ -55,6 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ISearchParameterExpressionParser, SearchParameterExpressionParser>();
             services.AddSingleton<IExpressionParser, ExpressionParser>();
             services.AddSingleton<ISearchOptionsFactory, SearchOptionsFactory>();
+            services.AddSingleton<IReferenceToElementResolver, LightweightReferenceToElementResolver>();
 
             services.Add<CompartmentDefinitionManager>()
                 .Singleton()
@@ -66,30 +97,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf()
                 .AsService<ICompartmentIndexer>();
-
-            // TODO: Remove the following once bug 65143 is fixed.
-            // All of the classes that implement IProvideCapability will be automatically be picked up and registered.
-            // This means that even though ResourceTypeManifestManager is not being registered, the service will still
-            // try to instantiate but will fail since the dependency components are not registered. We should re-look
-            // at the logic for automatically registering types since different component could have different life time.
-            // For now, just manually remove the registration.
-            RemoveRegistration(typeof(IProvideCapability), typeof(SearchParameterDefinitionManager), ServiceLifetime.Transient);
-
-            void RemoveRegistration(Type serviceType, Type implementationType, ServiceLifetime lifetime)
-            {
-                for (int i = 0; i < services.Count; i++)
-                {
-                    ServiceDescriptor descriptor = services[i];
-
-                    if (descriptor.ServiceType == serviceType &&
-                        descriptor.ImplementationType == implementationType &&
-                        descriptor.Lifetime == lifetime)
-                    {
-                        services.RemoveAt(i);
-                        break;
-                    }
-                }
-            }
         }
     }
 }

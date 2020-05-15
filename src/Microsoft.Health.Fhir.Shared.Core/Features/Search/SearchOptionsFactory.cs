@@ -5,12 +5,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -23,26 +26,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public class SearchOptionsFactory : ISearchOptionsFactory
     {
         private static readonly Regex Base64FormatRegex = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$", RegexOptions.Compiled | RegexOptions.Singleline);
+        private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
 
         private readonly IExpressionParser _expressionParser;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
+        private CoreFeatureConfiguration _featureConfiguration;
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
+            IOptions<CoreFeatureConfiguration> featureConfiguration,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
+            EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
+            _featureConfiguration = featureConfiguration.Value;
 
-            _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
+            _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
 
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
@@ -58,6 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
+            bool setDefaultBundleTotal = true;
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             foreach (Tuple<string, string> query in queryParameters ?? Enumerable.Empty<Tuple<string, string>>())
@@ -80,6 +89,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     {
                         continuationToken = query.Item2;
                     }
+
+                    setDefaultBundleTotal = false;
                 }
                 else if (query.Item1 == KnownQueryParameterNames.Format)
                 {
@@ -94,17 +105,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     if (Enum.TryParse<TotalType>(query.Item2, true, out var totalType))
                     {
-                        // Estimate is not yet supported.
-                        if (totalType == TotalType.Estimate)
-                        {
-                            throw new SearchOperationNotSupportedException(Core.Resources.UnsupportedTotalParameter);
-                        }
+                        ValidateTotalType(totalType);
 
                         searchOptions.IncludeTotal = totalType;
+                        setDefaultBundleTotal = false;
                     }
                     else
                     {
-                        throw new BadRequestException(Core.Resources.UnsupportedTotalParameter);
+                        throw new BadRequestException(string.Format(Core.Resources.InvalidTotalParameter, query.Item2, SupportedTotalTypes));
                     }
                 }
                 else
@@ -123,6 +131,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             searchOptions.ContinuationToken = continuationToken;
+
+            if (setDefaultBundleTotal)
+            {
+                ValidateTotalType(_featureConfiguration.IncludeTotalInBundle);
+                searchOptions.IncludeTotal = _featureConfiguration.IncludeTotalInBundle;
+            }
 
             // Check the item count.
             if (searchParams.Count != null)
@@ -221,7 +235,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
                     catch (SearchParameterNotSupportedException)
                     {
-                        (unsupportedSortings ?? (unsupportedSortings = new List<(string parameterName, string reason)>())).Add((sorting.Item1, string.Format(Core.Resources.SearchParameterNotSupported, sorting.Item1, resourceType)));
+                        (unsupportedSortings ??= new List<(string parameterName, string reason)>()).Add((sorting.Item1, string.Format(Core.Resources.SearchParameterNotSupported, sorting.Item1, resourceType)));
                     }
                 }
 
@@ -235,6 +249,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return searchOptions;
+
+            void ValidateTotalType(TotalType totalType)
+            {
+                // Estimate is not yet supported.
+                if (totalType == TotalType.Estimate)
+                {
+                    throw new SearchOperationNotSupportedException(string.Format(Core.Resources.UnsupportedTotalParameter, totalType, SupportedTotalTypes));
+                }
+            }
         }
     }
 }

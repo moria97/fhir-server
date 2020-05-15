@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using System.Threading;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
@@ -32,21 +33,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public InProcTestFhirServer(DataStore dataStore, Type startupType)
             : base(new Uri("http://localhost/"))
         {
-            var contentRoot = GetProjectPath("src", startupType);
+            var projectDir = GetProjectPath("src", startupType);
             var corsPath = Path.GetFullPath("corstestconfiguration.json");
-            var exportPath = Path.GetFullPath("exporttestconfiguration.json");
 
-            var launchSettings = JObject.Parse(File.ReadAllText(Path.Combine(contentRoot, "Properties", "launchSettings.json")));
+            var launchSettings = JObject.Parse(File.ReadAllText(Path.Combine(projectDir, "Properties", "launchSettings.json")));
 
             var configuration = launchSettings["profiles"][dataStore.ToString()]["environmentVariables"].Cast<JProperty>().ToDictionary(p => p.Name, p => p.Value.ToString());
 
+            configuration["TestAuthEnvironment:FilePath"] = "testauthenvironment.json";
+            configuration["FhirServer:Security:Authentication:Authority"] = "https://inprochost";
+
+            // For local development we will use the Azure Storage Emulator for export.
+            configuration["FhirServer:Operations:Export:StorageAccountConnection"] = "UseDevelopmentStorage=true";
+
             var builder = WebHost.CreateDefaultBuilder()
-                .UseContentRoot(contentRoot)
+                .UseContentRoot(Path.GetDirectoryName(startupType.Assembly.Location))
                 .ConfigureAppConfiguration(configurationBuilder =>
                 {
-                    configurationBuilder.AddDevelopmentAuthEnvironment("testauthenvironment.json");
+                    configurationBuilder.AddDevelopmentAuthEnvironmentIfConfigured(new ConfigurationBuilder().AddInMemoryCollection(configuration).Build());
                     configurationBuilder.AddJsonFile(corsPath);
-                    configurationBuilder.AddJsonFile(exportPath);
                     configurationBuilder.AddInMemoryCollection(configuration);
                 })
                 .UseStartup(startupType)
@@ -56,7 +61,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     // use a message handler for the test server
                     serviceCollection
                         .AddHttpClient(Options.DefaultName)
-                        .ConfigurePrimaryHttpMessageHandler(() => _messageHandler);
+                        .ConfigurePrimaryHttpMessageHandler(() => _messageHandler)
+                        .SetHandlerLifetime(Timeout.InfiniteTimeSpan); // So that it is not disposed after 2 minutes;
 
                     serviceCollection.PostConfigure<JwtBearerOptions>(
                         JwtBearerDefaults.AuthenticationScheme,
@@ -101,6 +107,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 // Find the path to the target project
                 var directoryInfo = new DirectoryInfo(applicationBasePath);
+
                 do
                 {
                     directoryInfo = directoryInfo.Parent;

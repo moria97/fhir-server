@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Resources {
+    public class Resources {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -66,15 +66,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string AtCannotBeSpecifiedWithBeforeOrSince {
             get {
                 return ResourceManager.GetString("AtCannotBeSpecifiedWithBeforeOrSince", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The authorization permission definition contains one or more invalid entries..
-        /// </summary>
-        internal static string AuthorizationPermissionDefinitionInvalid {
-            get {
-                return ResourceManager.GetString("AuthorizationPermissionDefinitionInvalid", resourceCulture);
             }
         }
         
@@ -230,6 +221,15 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ConditionalUpdateMismatchedIds", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The customer managed key is not accessible..
+        /// </summary>
+        internal static string CustomerManagedKeyInaccessible {
+            get {
+                return ResourceManager.GetString("CustomerManagedKeyInaccessible", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to The prefix used to identify custom audit headers cannot be empty..
@@ -241,11 +241,57 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The date time string &apos;{0}&apos; is not in a correct format..
+        /// </summary>
+        internal static string DateTimeStringIsIncorrectlyFormatted {
+            get {
+                return ResourceManager.GetString("DateTimeStringIsIncorrectlyFormatted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to At least one portion of the date time string &apos;{0}&apos; is out of range..
+        /// </summary>
+        internal static string DateTimeStringIsOutOfRange {
+            get {
+                return ResourceManager.GetString("DateTimeStringIsOutOfRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Deleting a specific record version is not supported..
         /// </summary>
         internal static string DeleteVersionNotAllowed {
             get {
                 return ResourceManager.GetString("DeleteVersionNotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There are {0} roles with the name &apos;{1}&apos;.
+        /// </summary>
+        internal static string DuplicateRoleNames {
+            get {
+                return ResourceManager.GetString("DuplicateRoleNames", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error validating roles:
+        ///{0}.
+        /// </summary>
+        internal static string ErrorValidatingRoles {
+            get {
+                return ResourceManager.GetString("ErrorValidatingRoles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Authorization failed..
+        /// </summary>
+        internal static string Forbidden {
+            get {
+                return ResourceManager.GetString("Forbidden", resourceCulture);
             }
         }
         
@@ -349,6 +395,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Given conditional reference &apos;{0}&apos; does not resolve to a resource..
+        /// </summary>
+        internal static string InvalidConditionalReference {
+            get {
+                return ResourceManager.GetString("InvalidConditionalReference", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource type and query parameter must be present in a given request &apos;{0}&apos;..
+        /// </summary>
+        internal static string InvalidConditionalReferenceParameters {
+            get {
+                return ResourceManager.GetString("InvalidConditionalReferenceParameters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Value &apos;{0}&apos; is not supported. Please select from the following list of supported capabilities: [{1}]..
         /// </summary>
         internal static string InvalidConfigSetting {
@@ -372,6 +436,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string InvalidSearchCountSpecified {
             get {
                 return ResourceManager.GetString("InvalidSearchCountSpecified", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is invalid. The supported values are: {1}..
+        /// </summary>
+        public static string InvalidTotalParameter {
+            get {
+                return ResourceManager.GetString("InvalidTotalParameter", resourceCulture);
             }
         }
         
@@ -502,6 +575,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Resource type &apos;{0}&apos; in the reference &apos;{1}&apos; is not supported..
+        /// </summary>
+        internal static string ReferenceResourceTypeNotSupported {
+            get {
+                return ResourceManager.GetString("ReferenceResourceTypeNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The requested action is not allowed..
         /// </summary>
         internal static string RequestedActionNotAllowed {
@@ -547,15 +629,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Role must have one or more resource permissions..
-        /// </summary>
-        internal static string ResourcePermissionEmpty {
-            get {
-                return ResourceManager.GetString("ResourcePermissionEmpty", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The requested resource exceeded the backing database&apos;s size limit..
         /// </summary>
         internal static string ResourceTooLarge {
@@ -588,24 +661,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ReverseChainMissingType {
             get {
                 return ResourceManager.GetString("ReverseChainMissingType", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Role name cannot be null or empty..
-        /// </summary>
-        internal static string RoleNameEmpty {
-            get {
-                return ResourceManager.GetString("RoleNameEmpty", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Role contains a resource permissions with no actions..
-        /// </summary>
-        internal static string RoleResourcePermissionWithNoAction {
-            get {
-                return ResourceManager.GetString("RoleResourcePermissionWithNoAction", resourceCulture);
             }
         }
         
@@ -736,15 +791,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The operation could not be completed, because the service was unable to accept new requests. It is safe to retry the operation. If the issue persists, please contact support..
-        /// </summary>
-        internal static string ServiceUnavailable {
-            get {
-                return ResourceManager.GetString("ServiceUnavailable", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The _sort parameter is not supported..
         /// </summary>
         internal static string SortNotSupported {
@@ -808,18 +854,9 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The destination type &apos;{0}&apos; is not supported..
+        ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is not supported. The supported values are: {1}..
         /// </summary>
-        internal static string UnsupportedDestinationTypeMessage {
-            get {
-                return ResourceManager.GetString("UnsupportedDestinationTypeMessage", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;_total&quot; parameter is not supported..
-        /// </summary>
-        internal static string UnsupportedTotalParameter {
+        public static string UnsupportedTotalParameter {
             get {
                 return ResourceManager.GetString("UnsupportedTotalParameter", resourceCulture);
             }
@@ -840,6 +877,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UserRequestedCancellation {
             get {
                 return ResourceManager.GetString("UserRequestedCancellation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to All OK.
+        /// </summary>
+        internal static string ValidationPassed {
+            get {
+                return ResourceManager.GetString("ValidationPassed", resourceCulture);
             }
         }
         

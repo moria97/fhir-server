@@ -15,6 +15,8 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
+using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -159,7 +161,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GivenAnOperationNotImplementedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            ValidateOperationOutcome(new OperationNotImplementedException("Not implemented."), HttpStatusCode.NotImplemented);
+            ValidateOperationOutcome(new OperationNotImplementedException("Not implemented."), HttpStatusCode.MethodNotAllowed);
         }
 
         [Fact]
@@ -182,7 +184,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData(HttpStatusCode.NotFound)]
         public void GivenATransactionFailedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome(HttpStatusCode statusCode)
         {
-            ValidateOperationOutcome(new TransactionFailedException("Transaction failed.", statusCode, new List<OperationOutcomeIssue>()), statusCode);
+            ValidateOperationOutcome(new FhirTransactionFailedException("Transaction failed.", statusCode, new List<OperationOutcomeIssue>()), statusCode);
         }
 
         [Fact]
@@ -195,6 +197,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public void GivenARequestEntityTooLargeException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new RequestEntityTooLargeException(), HttpStatusCode.RequestEntityTooLarge);
+        }
+
+        [Fact]
+        public void GivenACustomerManagedKeyInaccessibleException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new CustomerManagedKeyInaccessibleException(), HttpStatusCode.Forbidden);
+        }
+
+        [Fact]
+        public void GivenABundleEntryLimitExceededException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new BundleEntryLimitExceededException("Bundle entry limit exceeded."), HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public void GivenATransactionFailedExceptionException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new TransactionFailedException(), HttpStatusCode.InternalServerError);
         }
 
         private OperationOutcomeResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Web;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -87,7 +88,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
             });
 
-            string query = $"_include=Location:organization:Organization&_lastUpdated=lt{locationResponse2.Resource.Meta.LastUpdated:o}";
+            // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
+            string lastUpdated = HttpUtility.UrlEncode($"{locationResponse2.Resource.Meta.LastUpdated:o}");
+            string query = $"_include=Location:organization:Organization&_lastUpdated=lt{lastUpdated}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
 
@@ -119,7 +122,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithSimpleSearchAndCount_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&_count=1";
+            // Workaround for issue (https://github.com/microsoft/fhir-server/issues/1011) SQL DataProvider _total=accurate does not work with _include searches
+            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&_count=1&_total=none";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -191,7 +195,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     Result = new List<ResourceReference> { new ResourceReference($"Observation/{Fixture.TrumanSnomedObservation.Id}") },
                 });
 
-            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&_include=DiagnosticReport:result:Observation&code=429858000&_lastUpdated=lt{Fixture.PatientGroup.Meta.LastUpdated.Value:o}";
+            // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
+            string lastUpdated = HttpUtility.UrlEncode($"{Fixture.PatientGroup.Meta.LastUpdated:o}");
+            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&_include=DiagnosticReport:result:Observation&code=429858000&_lastUpdated=lt{lastUpdated}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
