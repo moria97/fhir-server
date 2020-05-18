@@ -6,6 +6,7 @@
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Task = System.Threading.Tasks.Task;
 
@@ -47,6 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 uriString: uriInString,
                 baseUriString: baseUriInString,
                 correlationId: correlationId,
+                collectionId: context.Request.GetRequestCollectionId(),
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers);
 

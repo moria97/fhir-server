@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             string uriString,
             string baseUriString,
             string correlationId,
+            string collectionId,
             IDictionary<string, StringValues> requestHeaders,
             IDictionary<string, StringValues> responseHeaders)
         {
@@ -37,6 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             _uriString = uriString;
             _baseUriString = baseUriString;
             CorrelationId = correlationId;
+            CollectionId = collectionId;
             RequestHeaders = requestHeaders;
             ResponseHeaders = responseHeaders;
         }
@@ -48,6 +50,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         public Uri Uri => _uri ?? (_uri = new Uri(_uriString));
 
         public string CorrelationId { get; }
+
+        public string CollectionId { get; set; }
 
         public string RouteName { get; set; }
 

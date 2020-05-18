@@ -21,6 +21,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
         public string CorrelationId { get; set; }
 
+        public string CollectionId { get; set; }
+
         public string RouteName { get; set; }
 
         public string AuditEventType { get; set; }

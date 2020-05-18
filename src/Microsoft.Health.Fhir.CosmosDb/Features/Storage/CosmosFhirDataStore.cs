@@ -22,6 +22,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
@@ -39,6 +40,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ILogger<CosmosFhirDataStore> _logger;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
+        private IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
         private readonly UpsertWithHistory _upsertWithHistoryProc;
         private readonly HardDelete _hardDelete;
@@ -65,6 +67,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             FhirCosmosDocumentQueryFactory cosmosDocumentQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
             IModelInfoProvider modelInfoProvider,
             IOptions<CoreFeatureConfiguration> coreFeatures)
         {
@@ -84,6 +87,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _logger = logger;
             _modelInfoProvider = modelInfoProvider;
             _coreFeatures = coreFeatures.Value;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
 
             CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
 
@@ -241,7 +245,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
-            var context = new CosmosQueryContext(CollectionUri, sqlQuerySpec, feedOptions);
+            var collectionId = _fhirRequestContextAccessor.FhirRequestContext?.CollectionId ?? CollectionId;
+            var collectionUri = _cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionId);
+
+            var context = new CosmosQueryContext(collectionUri, sqlQuerySpec, feedOptions);
 
             IDocumentQuery<T> documentQuery = _cosmosDocumentQueryFactory.Create<T>(_documentClientScope.Value, context);
 

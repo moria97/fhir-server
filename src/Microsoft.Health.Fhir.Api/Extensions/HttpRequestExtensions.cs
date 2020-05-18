@@ -24,5 +24,35 @@ namespace Microsoft.Health.Fhir.Api.Extensions
             return !request.Path.StartsWithSegments(KnownRoutes.HealthCheck, StringComparison.InvariantCultureIgnoreCase) &&
                    !request.Path.StartsWithSegments(KnownRoutes.CustomError, StringComparison.InvariantCultureIgnoreCase);
         }
+
+        public static bool IsAnonymizeRequest(this HttpRequest request)
+        {
+            EnsureArg.IsNotNull(request, nameof(request));
+
+            return request.Path.Value.StartsWith("/" + KnownRoutes.Anonymize, StringComparison.InvariantCultureIgnoreCase);
+        }
+
+        public static bool IsAnonymizeCreateRequest(this HttpRequest request)
+        {
+            EnsureArg.IsNotNull(request, nameof(request));
+
+            return request.Method == HttpMethods.Post && request.Path.Value.EndsWith("/Create", StringComparison.InvariantCultureIgnoreCase);
+        }
+
+        public static string GetRequestCollectionId(this HttpRequest request)
+        {
+            EnsureArg.IsNotNull(request, nameof(request));
+
+            if (request.IsAnonymizeRequest())
+            {
+                var pathComponents = request.Path.Value.Split("/", StringSplitOptions.RemoveEmptyEntries);
+                if (pathComponents.Length >= 2)
+                {
+                    return pathComponents[1];
+                }
+            }
+
+            return null;
+        }
     }
 }

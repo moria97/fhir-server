@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         public const string Anonymize = "anonymize";
         public const string AnonymizeEndpoint = Anonymize + "/" + IdRouteSegment;
+        public const string CreateAnonymizeEndpoint = Anonymize + "/" + IdRouteSegment + "/" + "Create";
         public const string AnonymizeResourceTypeEndpoint = Anonymize + "/" + IdRouteSegment + "/" + ResourceType;
 
         public const string Validate = "$validate";

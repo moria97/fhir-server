@@ -3,9 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Fhir.Anonymizer.Core.AnonymizerConfigurations;
+using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -18,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
@@ -42,21 +46,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _cosmosFhirOperationDataStore = cosmosFhirOperationDataStore;
         }
 
-        [HttpGet]
-        [AuditEventType(AuditEventSubType.Export)]
-        [Route(KnownRoutes.AnonymizeResourceTypeEndpoint)]
-        public async Task<ActionResult> SearchAnonymize(string idParameter, string typeParameter)
-        {
-            await Task.Delay(1);
-            return new ContentResult
-            {
-                Content = $"{idParameter} {typeParameter}",
-            };
-        }
-
         [HttpPost]
         [AuditEventType(AuditEventSubType.Export)]
-        [Route(KnownRoutes.AnonymizeEndpoint)]
+        [Route(KnownRoutes.CreateAnonymizeEndpoint)]
         public async Task<ActionResult> CreateAnonymizeEndpoint(string idParameter, [FromBody] AnonymizerConfiguration configuration)
         {
             await _cosmosFhirOperationDataStore.CreateAnonymizeConfigurationAsync(configuration, idParameter, CancellationToken.None);

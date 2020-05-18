@@ -20,6 +20,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         string CorrelationId { get; }
 
+        public string CollectionId { get; set; }
+
         string RouteName { get; set; }
 
         string AuditEventType { get; set; }

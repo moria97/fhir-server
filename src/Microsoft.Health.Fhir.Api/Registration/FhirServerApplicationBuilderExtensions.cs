@@ -10,6 +10,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Newtonsoft.Json;
 
@@ -45,6 +46,23 @@ namespace Microsoft.AspNetCore.Builder
                     httpContext.Response.ContentType = MediaTypeNames.Application.Json;
                     await httpContext.Response.WriteAsync(response);
                 },
+            });
+
+            app.Use(async (context, next) =>
+            {
+                var url = context.Request.Path.Value;
+
+                if (context.Request.IsAnonymizeRequest() && !context.Request.IsAnonymizeCreateRequest())
+                {
+                    // rewrite to search controller
+                    var components = context.Request.Path.Value.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                    if (components.Length >= 2)
+                    {
+                        context.Request.Path = "/" + string.Join('/', components.Skip(2));
+                    }
+                }
+
+                await next();
             });
 
             app.UseStaticFiles();
