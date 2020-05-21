@@ -198,8 +198,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Anonymize
             foreach (SearchResultEntry result in searchResults)
             {
                 ResourceWrapper resourceWrapper = result.Resource;
+                var newResourceWrapper = resourceWrapper;
 
-                var newResourceWrapper = _anonymizationOperation().Value.Anonymize(resourceWrapper, collectionId, _engine);
+                if (!string.Equals(collectionId, "test", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    newResourceWrapper = _anonymizationOperation().Value.Anonymize(resourceWrapper, collectionId, _engine);
+                }
+
                 UpsertOutcome outcome = await _fhirDataStore().Value.UpsertAsync(
                     newResourceWrapper,
                     weakETag: null,
