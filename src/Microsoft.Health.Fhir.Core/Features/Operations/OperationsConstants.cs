@@ -11,6 +11,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Export = "export";
 
+        public const string Anonymize = "anonymize";
+
         public const string ExportContentTypeHeaderValue = "application/json";
     }
 }

@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Fhir.Anonymizer.Core.AnonymizerConfigurations;
 
-namespace Microsoft.Health.Fhir.Api.Features.Anonymize
+namespace Microsoft.Health.Fhir.Core.Features.Anonymize
 {
     public interface IAnonymizeConfigurationStore
     {

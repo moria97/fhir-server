@@ -4,12 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading.Tasks;
+using Fhir.Anonymizer.Core;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Anonymize
 {
     public interface IAnonymizationOperation
     {
-        Task<ResourceWrapper> Anonymize(ResourceWrapper resource, string collectionId);
+        Task InitializeDataCollection(string collectionId);
+
+        Task<AnonymizerEngine> GetEngineByCollectionId(string collectionId);
+
+        ResourceWrapper Anonymize(ResourceWrapper resource, string collectionId, AnonymizerEngine engine);
     }
 }
