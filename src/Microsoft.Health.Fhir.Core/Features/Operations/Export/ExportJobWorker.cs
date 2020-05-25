@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -24,11 +25,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly ExportJobResolver _exportJobTaskFactory;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+
         private readonly ILogger _logger;
 
         private const int MaximumDelayInSeconds = 3600;
 
-        public ExportJobWorker(Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory, IOptions<ExportJobConfiguration> exportJobConfiguration, ExportJobResolver exportJobTaskFactory, ILogger<ExportJobWorker> logger)
+        public ExportJobWorker(
+            Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            IOptions<ExportJobConfiguration> exportJobConfiguration,
+            ExportJobResolver exportJobTaskFactory,
+            ILogger<ExportJobWorker> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
@@ -36,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _exportJobTaskFactory = exportJobTaskFactory;
             _logger = logger;
@@ -62,11 +71,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                 _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
                                 _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
                                 cancellationToken);
-
                             foreach (ExportJobOutcome job in jobs)
                             {
                                 _logger.LogTrace($"Picked up job: {job.JobRecord.Id}.");
 
+                                _fhirRequestContextAccessor.FhirRequestContext = new FhirRequestContext(job.JobRecord.CollectionId);
                                 runningTasks.Add(_exportJobTaskFactory(job.JobRecord.JobType).ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
                             }
                         }

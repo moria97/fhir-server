@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Anonymize
 
                 if (!string.Equals(collectionId, "test", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    newResourceWrapper = _anonymizationOperation().Value.Anonymize(resourceWrapper, collectionId, _engine);
+                    newResourceWrapper = _anonymizationOperation().Value.Anonymize(resourceWrapper, _engine);
                 }
 
                 UpsertOutcome outcome = await _fhirDataStore().Value.UpsertAsync(
@@ -210,8 +210,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Anonymize
                     weakETag: null,
                     allowCreate: true,
                     keepHistory: false,
-                    cancellationToken: cancellationToken,
-                    collectionId);
+                    cancellationToken: cancellationToken);
             }
         }
     }

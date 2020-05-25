@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Anonymize
             return await _fhirOperationDataStore.GetAnonymizerConfigurationByIdAsync(collectionId, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public ResourceWrapper Anonymize(ResourceWrapper resourceWrapper, string collectionId, AnonymizerEngine engine)
+        public ResourceWrapper Anonymize(ResourceWrapper resourceWrapper, AnonymizerEngine engine)
         {
             var resource = _fhirJsonParser.Parse<Resource>(resourceWrapper.RawResource.Data);
 

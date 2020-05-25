@@ -20,7 +20,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         string CorrelationId { get; }
 
-        public string CollectionId { get; set; }
+        string CollectionId { get; set; }
+
+        string SinkCollectionId { get; set; }
 
         string RouteName { get; set; }
 
