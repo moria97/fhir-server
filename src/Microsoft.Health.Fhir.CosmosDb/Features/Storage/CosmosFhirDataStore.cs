@@ -41,7 +41,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly IOptionsSnapshot<CosmosCollectionConfiguration> _namedCosmosCollectionConfigurationAccessor;
-        private IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
         private readonly UpsertWithHistory _upsertWithHistoryProc;
         private readonly HardDelete _hardDelete;
@@ -69,7 +68,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             FhirCosmosDocumentQueryFactory cosmosDocumentQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
             IModelInfoProvider modelInfoProvider,
             IOptions<CoreFeatureConfiguration> coreFeatures)
         {
@@ -89,7 +87,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _logger = logger;
             _modelInfoProvider = modelInfoProvider;
             _coreFeatures = coreFeatures.Value;
-            _fhirRequestContextAccessor = fhirRequestContextAccessor;
 
             _namedCosmosCollectionConfigurationAccessor = namedCosmosCollectionConfigurationAccessor;
 
