@@ -8,7 +8,7 @@
 //------------------------------------------------------------------------------
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public partial class FhirDocumentClient : Microsoft.Azure.Documents.IDocumentClient, System.IDisposable
+    internal partial class FhirDocumentClient : Microsoft.Azure.Documents.IDocumentClient, System.IDisposable
     {
         public readonly Microsoft.Azure.Documents.IDocumentClient _inner;
         private FhirDocumentClient(Microsoft.Azure.Documents.IDocumentClient inner)

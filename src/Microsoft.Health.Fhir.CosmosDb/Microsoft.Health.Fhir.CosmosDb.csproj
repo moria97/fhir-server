@@ -41,10 +41,4 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <ItemGroup>
-    <Generated Include="Features/Storage/FhirDocumentClient.Generated.cs">
-      <Generator>FhirDocumentClientGenerator</Generator>
-      <Namespace>Microsoft.Health.Fhir.CosmosDb.Features.Storage</Namespace>
-    </Generated>
-  </ItemGroup>
 </Project>

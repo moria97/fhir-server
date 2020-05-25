@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     /// (3) Sets the <see cref="CosmosDbHeaders.RequestCharge"/> response header.
     /// (4) In the event of a 429 response from the database, throws a <see cref="RequestRateTooLargeException"/>.
     /// </summary>
-    public sealed partial class FhirDocumentClient
+    internal sealed partial class FhirDocumentClient
     {
         private static readonly string ValidConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames(typeof(ConsistencyLevel)).Select(v => $"'{v}'"));
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
