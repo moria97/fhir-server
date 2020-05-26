@@ -3,7 +3,7 @@ name: .NET Core
 on:
   push:
     branches:
-      - feature/duplicate-db-anonymize
+      - feature/duplicate-db-onebyone
 jobs:
   publish:
     runs-on: windows-latest

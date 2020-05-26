@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Anonymize
     public class AnonymizeJobTask : IExportJobTask
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly AnonymizeJobConfiguration _exportJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ILogger _logger;
@@ -45,10 +46,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Anonymize
 
         private Func<IScoped<IAnonymizationOperation>> _anonymizationOperation;
         private Func<IScoped<IBulkDocumentClient>> _bulkDocumentClientFactory;
-        private IBulkDocumentClient _bulkDocumentClient;
 
         public AnonymizeJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
+            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             Func<IScoped<IBulkDocumentClient>> bulkDocumentClientFactory,
             Func<IScoped<IAnonymizationOperation>> anonymizationOperation,
             IOptions<AnonymizeJobConfiguration> exportJobConfiguration,
@@ -63,6 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Anonymize
             _anonymizationOperation = anonymizationOperation;
             _bulkDocumentClientFactory = bulkDocumentClientFactory;
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
+            _fhirDataStoreFactory = fhirDataStoreFactory;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
             _logger = logger;
@@ -76,9 +78,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Anonymize
             // Initialize collection
             await _anonymizationOperation().Value.InitializeDataCollection(exportJobRecord.CollectionId);
             _engine = await _anonymizationOperation().Value.GetEngineByCollectionId(exportJobRecord.CollectionId);
-
-            _bulkDocumentClient = _bulkDocumentClientFactory().Value;
-            await _bulkDocumentClient.InitializeExecutor();
 
             _exportJobRecord = exportJobRecord;
             _weakETag = weakETag;
@@ -201,7 +200,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Anonymize
 
         private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, string collectionId, CancellationToken cancellationToken)
         {
-            var batchDocuments = new List<string>();
+            var dataStore = _fhirDataStoreFactory().Value;
             foreach (SearchResultEntry result in searchResults)
             {
                 ResourceWrapper resourceWrapper = result.Resource;
@@ -216,10 +215,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Anonymize
                     newResourceWrapper = _anonymizationOperation().Value.Anonymize(resourceWrapper, _engine);
                 }
 
-                batchDocuments.Add(JsonConvert.SerializeObject(resourceWrapper));
+                var response = await dataStore.UpsertAsync(
+                    newResourceWrapper,
+                    weakETag: null,
+                    allowCreate: true,
+                    keepHistory: false,
+                    cancellationToken: cancellationToken);
             }
-
-            await _bulkDocumentClient.BulkImport(batchDocuments, cancellationToken);
         }
     }
 }
