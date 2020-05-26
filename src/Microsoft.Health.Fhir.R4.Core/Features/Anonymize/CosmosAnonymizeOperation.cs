@@ -62,5 +62,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Anonymize
             resourceWrapper.RawResource = new RawResource(anonymizedResource.ToJson(), resourceWrapper.RawResource.Format);
             return resourceWrapper;
         }
+
+        public ResourceWrapper CopyWithoutAnonymize(ResourceWrapper resourceWrapper)
+        {
+            var resource = _fhirJsonParser.Parse<Resource>(resourceWrapper.RawResource.Data);
+            resourceWrapper.SearchIndices = _searchIndexer.Extract(resource.ToResourceElement());
+            resourceWrapper.RawResource = new RawResource(resource.ToJson(), resourceWrapper.RawResource.Format);
+            return resourceWrapper;
+        }
     }
 }

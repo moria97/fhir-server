@@ -16,5 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Anonymize
         Task<AnonymizerEngine> GetEngineByCollectionId(string collectionId);
 
         ResourceWrapper Anonymize(ResourceWrapper resource, AnonymizerEngine engine);
+
+        ResourceWrapper CopyWithoutAnonymize(ResourceWrapper resourceWrapper);
     }
 }

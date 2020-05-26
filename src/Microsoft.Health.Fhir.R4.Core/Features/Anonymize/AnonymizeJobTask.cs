@@ -207,7 +207,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Anonymize
                 ResourceWrapper resourceWrapper = result.Resource;
                 var newResourceWrapper = resourceWrapper;
 
-                if (!string.Equals(collectionId, "test", StringComparison.InvariantCultureIgnoreCase))
+                if (string.Equals(collectionId, "testindex", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    newResourceWrapper = _anonymizationOperation().Value.CopyWithoutAnonymize(resourceWrapper);
+                }
+                else if (!string.Equals(collectionId, "test", StringComparison.InvariantCultureIgnoreCase))
                 {
                     newResourceWrapper = _anonymizationOperation().Value.Anonymize(resourceWrapper, _engine);
                 }
