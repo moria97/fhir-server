@@ -20,7 +20,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
-namespace Microsoft.Health.Fhir.Api.Features.Anonymize
+namespace Microsoft.Health.Fhir.Core.Features.Anonymize
 {
     public class CosmosAnonymizeConfigurationStore : IAnonymizeConfigurationStore
     {
@@ -87,8 +87,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Anonymize
         public async Task CreateAnonymizeConfigurationAsync(AnonymizerConfiguration configuration, string collectionId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
-
-            await InitializeCollection(collectionId);
 
             var configurationWrapper = new CosmosAnonymizationConfigurationWrapper(configuration, collectionId);
 

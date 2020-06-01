@@ -12,16 +12,16 @@
 
   <ItemGroup>
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Azure.CosmosDB.BulkExecutor" Version="2.4.1-preview" />
     <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.9.2" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.3" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.1.3" />
-    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200416-1" />
-    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="1.0.0-master-20200416-1" />
-    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200416-1" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200507-1" />
+    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="1.0.0-master-20200507-1" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200507-1" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\projects\FHIR-Tools-for-Anonymization\src\Fhir.Anonymizer.Core\Fhir.Anonymizer.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.CosmosDb\Microsoft.Health.CosmosDb.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
   </ItemGroup>
@@ -41,10 +41,4 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <ItemGroup>
-    <Generated Include="Features/Storage/FhirDocumentClient.Generated.cs">
-      <Generator>FhirDocumentClientGenerator</Generator>
-      <Namespace>Microsoft.Health.Fhir.CosmosDb.Features.Storage</Namespace>
-    </Generated>
-  </ItemGroup>
 </Project>

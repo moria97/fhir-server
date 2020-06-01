@@ -3,18 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading;
 using System.Threading.Tasks;
-using Fhir.Anonymizer.Core.AnonymizerConfigurations;
+using Fhir.Anonymizer.Core;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Anonymize
 {
-    public interface IAnonymizeConfigurationStore
+    public interface IAnonymizationOperation
     {
-        Task InitializeCollection(string collectionId);
+        Task InitializeDataCollection(string collectionId);
 
-        Task CreateAnonymizeConfigurationAsync(AnonymizerConfiguration configuration, string collectionId, CancellationToken cancellationToken);
+        Task<AnonymizerEngine> GetEngineByCollectionId(string collectionId);
 
-        Task<AnonymizerConfiguration> GetAnonymizerConfigurationByIdAsync(string id, CancellationToken cancellationToken);
+        ResourceWrapper Anonymize(ResourceWrapper resource, AnonymizerEngine engine);
+
+        ResourceWrapper CopyWithoutAnonymize(ResourceWrapper resourceWrapper);
     }
 }

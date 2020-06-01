@@ -7,6 +7,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Anonymize;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 
 namespace Microsoft.Health.Fhir.Api.Modules

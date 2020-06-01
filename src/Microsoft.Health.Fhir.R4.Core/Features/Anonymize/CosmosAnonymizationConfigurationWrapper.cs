@@ -7,9 +7,10 @@ using EnsureThat;
 using Fhir.Anonymizer.Core.AnonymizerConfigurations;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export
+namespace Microsoft.Health.Fhir.Core.Features.Anonymize
 {
     /// <summary>
     /// A wrapper around the <see cref="ExportJobRecord"/> class that contains metadata specific to CosmosDb.

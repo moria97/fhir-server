@@ -130,10 +130,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R5.Te
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R5.Tests.Integration", "test\Microsoft.Health.Fhir.R5.Tests.Integration\Microsoft.Health.Fhir.R5.Tests.Integration.csproj", "{E18E488B-EE9C-4735-81B1-65C74DAE83CF}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Anonymization", "Anonymization", "{5D3D6E3D-5F2D-401B-8A30-CC0D8992BB4E}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fhir.Anonymizer.Core", "..\..\projects\FHIR-Tools-for-Anonymization\src\Fhir.Anonymizer.Core\Fhir.Anonymizer.Core.csproj", "{0EB6CB88-5D20-4BE1-9B65-712AA2C2900B}"
-EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
@@ -339,10 +335,6 @@ Global
 		{E18E488B-EE9C-4735-81B1-65C74DAE83CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E18E488B-EE9C-4735-81B1-65C74DAE83CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E18E488B-EE9C-4735-81B1-65C74DAE83CF}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0EB6CB88-5D20-4BE1-9B65-712AA2C2900B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0EB6CB88-5D20-4BE1-9B65-712AA2C2900B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0EB6CB88-5D20-4BE1-9B65-712AA2C2900B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0EB6CB88-5D20-4BE1-9B65-712AA2C2900B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -404,11 +396,9 @@ Global
 		{E8AEC3F3-EFBB-4439-95FF-E45613CC7DA2} = {323F60C6-936A-4C5B-AF6A-F27E93AA7B05}
 		{B956E6F9-92A6-43F2-934B-1EB20FA8BBA3} = {85F39C13-BC62-49A0-9C06-3BBA724D35ED}
 		{E18E488B-EE9C-4735-81B1-65C74DAE83CF} = {FCD51BAF-BFE5-476F-B562-C9AB36AA9839}
-		{5D3D6E3D-5F2D-401B-8A30-CC0D8992BB4E} = {7457B218-2651-49B5-BED8-22233889516A}
-		{0EB6CB88-5D20-4BE1-9B65-712AA2C2900B} = {5D3D6E3D-5F2D-401B-8A30-CC0D8992BB4E}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 		RESX_SortFileContentOnSave = True
+		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 	EndGlobalSection
 EndGlobal

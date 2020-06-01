@@ -9,6 +9,8 @@ namespace Microsoft.Health.CosmosDb.Configs
     {
         public string CollectionId { get; set; }
 
+        public string SinkCollectionId { get; set; }
+
         public int? InitialCollectionThroughput { get; set; }
     }
 }

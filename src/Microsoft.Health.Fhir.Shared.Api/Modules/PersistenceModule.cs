@@ -6,13 +6,13 @@
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.Anonymize;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Anonymize;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.CosmosDb;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -32,6 +32,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<IRawResourceFactory, RawResourceFactory>();
             services.AddSingleton<IResourceWrapperFactory, ResourceWrapperFactory>();
 
+            services.Add<FhirBulkDocumentClient>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
             services.Add<CosmosAnonymizeOperation>()
                 .Scoped()
                 .AsSelf()
@@ -43,6 +47,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddFactory<IScoped<ISearchService>>();
             services.AddFactory<IScoped<IFhirDataStore>>();
+            services.AddFactory<IScoped<IBulkDocumentClient>>();
             services.AddFactory<IScoped<IAnonymizationOperation>>();
             services.AddFactory<IScoped<IAnonymizeConfigurationStore>>();
 

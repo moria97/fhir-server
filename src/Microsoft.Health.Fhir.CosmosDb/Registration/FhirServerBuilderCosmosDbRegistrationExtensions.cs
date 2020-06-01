@@ -12,6 +12,7 @@ using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -61,7 +62,10 @@ namespace Microsoft.Extensions.DependencyInjection
                         if (string.IsNullOrWhiteSpace(cosmosCollectionConfiguration.CollectionId))
                         {
                             IModelInfoProvider modelInfoProvider = sp.GetRequiredService<IModelInfoProvider>();
-                            cosmosCollectionConfiguration.CollectionId = modelInfoProvider.Version == FhirSpecification.Stu3 ? "fhir" : $"fhir{modelInfoProvider.Version}";
+                            IFhirRequestContextAccessor requestContextAccessor = sp.GetRequiredService<IFhirRequestContextAccessor>();
+                            var baseCollectionId = modelInfoProvider.Version == FhirSpecification.Stu3 ? "fhir" : $"fhir{modelInfoProvider.Version}";
+                            cosmosCollectionConfiguration.CollectionId = requestContextAccessor?.FhirRequestContext?.CollectionId ?? baseCollectionId;
+                            cosmosCollectionConfiguration.SinkCollectionId = requestContextAccessor?.FhirRequestContext?.SinkCollectionId ?? baseCollectionId;
                         }
                     }));
 

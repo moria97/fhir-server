@@ -43,6 +43,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             ResponseHeaders = responseHeaders;
         }
 
+        public FhirRequestContext(string sinkCollectionId)
+        {
+            SinkCollectionId = sinkCollectionId;
+            RequestHeaders = new Dictionary<string, StringValues>();
+            ResponseHeaders = new Dictionary<string, StringValues>();
+        }
+
         public string Method { get; }
 
         public Uri BaseUri => _baseUri ?? (_baseUri = new Uri(_baseUriString));
@@ -52,6 +59,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         public string CorrelationId { get; }
 
         public string CollectionId { get; set; }
+
+        public string SinkCollectionId { get; set; }
 
         public string RouteName { get; set; }
 

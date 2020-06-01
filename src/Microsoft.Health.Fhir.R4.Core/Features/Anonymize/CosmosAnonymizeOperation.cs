@@ -11,11 +11,11 @@ using Fhir.Anonymizer.Core.Extensions;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Anonymize;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Api.Features.Anonymize
+namespace Microsoft.Health.Fhir.Core.Features.Anonymize
 {
     public class CosmosAnonymizeOperation : IAnonymizationOperation
     {
@@ -37,20 +37,38 @@ namespace Microsoft.Health.Fhir.Api.Features.Anonymize
             Hl7.FhirPath.FhirPathCompiler.DefaultSymbolTable.AddExtensionSymbols();
         }
 
+        public async Task InitializeDataCollection(string collectionId)
+        {
+            await _fhirOperationDataStore.InitializeCollection(collectionId);
+        }
+
+        public async Task<AnonymizerEngine> GetEngineByCollectionId(string collectionId)
+        {
+            var configuration = await GetConfigurationById(collectionId);
+            return new AnonymizerEngine(new AnonymizerConfigurationManager(configuration));
+        }
+
         public async Task<AnonymizerConfiguration> GetConfigurationById(string collectionId)
         {
             return await _fhirOperationDataStore.GetAnonymizerConfigurationByIdAsync(collectionId, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task<ResourceWrapper> Anonymize(ResourceWrapper resource, string collectionId)
+        public ResourceWrapper Anonymize(ResourceWrapper resourceWrapper, AnonymizerEngine engine)
         {
-            var configuration = await GetConfigurationById(collectionId);
-            var engine = new AnonymizerEngine(new AnonymizerConfigurationManager(configuration));
-            var anonymizedData = engine.AnonymizeJson(resource.RawResource.Data);
-            var resourceElement = _fhirJsonParser.Parse<Resource>(anonymizedData).ToResourceElement();
-            resource.SearchIndices = _searchIndexer.Extract(resourceElement);
-            resource.RawResource = new RawResource(anonymizedData, resource.RawResource.Format);
-            return resource;
+            var resource = _fhirJsonParser.Parse<Resource>(resourceWrapper.RawResource.Data);
+
+            var anonymizedResource = engine.AnonymizeResource(resource);
+            resourceWrapper.SearchIndices = _searchIndexer.Extract(anonymizedResource.ToResourceElement());
+            resourceWrapper.RawResource = new RawResource(anonymizedResource.ToJson(), resourceWrapper.RawResource.Format);
+            return resourceWrapper;
+        }
+
+        public ResourceWrapper CopyWithoutAnonymize(ResourceWrapper resourceWrapper)
+        {
+            var resource = _fhirJsonParser.Parse<Resource>(resourceWrapper.RawResource.Data);
+            resourceWrapper.SearchIndices = _searchIndexer.Extract(resource.ToResourceElement());
+            resourceWrapper.RawResource = new RawResource(resource.ToJson(), resourceWrapper.RawResource.Format);
+            return resourceWrapper;
         }
     }
 }
